@@ -18,8 +18,10 @@ from VP_rheology_settings import *
 plt.rc('text', usetex=True)
 plt.rc('font', family='sans')
 
+# create fake deformation data
 e11, e22, e12, e21 = create_data(random=True,i=1e-3,j=0,plot=False,sym=False,s=21)
 
+# compute simpler and additionnal variables
 ep, em, e1, e2, eI, eII, e12s, e1s, e2s, eIs, eIIs = comp_sim_sr(e11,e22,e12,e21)
 
 

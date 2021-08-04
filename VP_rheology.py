@@ -1,6 +1,5 @@
 #!/usr/bin python
 import numpy as np
-from smoothabs import smoothmin_good
 from matplotlib.patches import Ellipse
 import pylab as plt
 from mpl_toolkits.mplot3d import Axes3D

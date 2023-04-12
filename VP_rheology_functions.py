@@ -1,6 +1,6 @@
 #!/usr/bin python
 import numpy as np
-from smoothabs import smoothmin_good
+# from smoothabs import smoothmin_good
 from matplotlib.patches import Ellipse
 import pylab as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -11,7 +11,6 @@ from math import copysign
 # Using LaTeX in figures
 plt.rc('text', usetex=True)
 plt.rc('font', family='sans')
-
 
 from VP_rheology_settings import *
 
@@ -56,7 +55,7 @@ def create_data(random=True,i=1e-6,j=0,plot=False,sym=True,s=201):
         e11=eg[1,:,:]#*0.0
         e22=eg[0,:,:]#*-0.5
         e12=(1.0*e11+1.0*e22)*0.0
-    
+
 
     if plot :
         plt.figure('e11')
@@ -82,55 +81,107 @@ def create_data(random=True,i=1e-6,j=0,plot=False,sym=True,s=201):
 
         plt.show()
 
-    return e11, e22, e12, e21
+    return {'e11':e11, 'e22':e22, 'e12':e12, 'e21':e21}
 
-def comp_sim_sr(e11,e22,e12,e21):
+def comp_sim_sr(data):
     '''
     Computing simpler variables
     '''
 
-    ep=e11+e22
-    em=e11-e22
-    e12s=0.5*(e12+e21)
+    data['ep'] = data['e11']+data['e22']
+    data['em'] = data['e11']-data['e22']
+    data['e12s'] = 0.5*(data['e12']+data['e21'])
 
     ### Computing deformations in principal stress
     # eTmp=np.sqrt(em**2+4*np.abs(e12*e21))
-    eTmp=np.sqrt(np.abs(em**2+4*e12*e21))
+    data['eTmp'] = np.sqrt(np.abs(data['em']**2+4*data['e12']*data['e21']))
     # eTmp=np.sqrt(em**2+4*e12*e21)
 
-    e1=0.5*(ep+eTmp)
-    e2=0.5*(ep-eTmp)
+    data['e1'] = 0.5*(data['ep']+data['eTmp'])
+    data['e2'] = 0.5*(data['ep']-data['eTmp'])
 
     ### Computing in stress invariant
-    eI=0.5*(e1+e2)
-    eII=0.5*(e1-e2)
+    data['eI'] = 0.5*(data['e1']+data['e2'])
+    data['eII'] = 0.5*(data['e1']-data['e2'])
 
     ### Computing deformations in principal stress
-    eTmps=np.sqrt(em**2+4*e12s**2)
-    e1s=0.5*(ep+eTmp)
-    e2s=0.5*(ep-eTmp)
+    data['eTmps'] = np.sqrt(data['em']**2+4*data['e12s']**2)
+    data['e1s'] = 0.5*(data['ep']+data['eTmp'])
+    data['e2s'] = 0.5*(data['ep']-data['eTmp'])
 
     ### Computing in stress invariant
-    eIs=0.5*(e1+e2)
-    eIIs=0.5*(e1-e2)
+    data['eIs'] = 0.5*(data['e1']+data['e2'])
+    data['eIIs'] = 0.5*(data['e1']-data['e2'])
 
-    return ep, em, e1, e2, eI, eII, e12s, e1s, e2s, eIs, eIIs
+    # return ep, em, e1, e2, eI, eII, e12s, e1s, e2s, eIs, eIIs
+    return None
 
 
 ##########################
 # RHEOLOGIES (VISCOSITIES)
 ##########################
 
-def ellip(ep,em,e12,e21,e=2):
+def compute_visc(data={},rheos={}):
+
+    for rheo_n in rheos:
+        data['rheos'].append(rheo_n)
+        data[rheo_n] = {}
+
+        if rheos[rheo_n]['rheo_t'] == 'ell' :
+            ellip(data=data, rheo=rheos[rheo_n], rheo_n = rheo_n)
+        elif rheos[rheo_n]['rheo_t'] == 'ell_rot' :
+            ellip(data=data, rheo=rheos[rheo_n], rheo_n = rheo_n, rot=True)
+
+    return None
+
+def ellip(data={}, rheo={}, rheo_n = '', rot=False):
     '''
-    ELLIPTICAL YIELD CURVE 
+    ELLIPTICAL YIELD CURVE
     '''
 
-    recip_e2 = 1./(e*e) 
+    # load data
+    ep = data['ep']
+    em = data['em']
+    if rot :
+        e12 = data['e12']
+        e21 = data['e21']
+    else:
+        e12 = data['e12s']
+        e21 = data['e12s']
+
+    # load rheo parameters
+    if 'e' in rheo:
+        e = rheo['e']
+    else:
+        e = e_d
+        rheo['e'] = e
+
+    # load rheo parameters
+    if 'efr' in rheo:
+        efr = rheo['efr']
+    else:
+        efr = e
+        rheo['efr'] = efr
+
+    if 'kt' in rheo:
+        kt = rheo['kt']
+    else:
+        kt = tnsFac_d
+        rheo['kt'] = kt
+
+    if 'press0' in rheo:
+        press0 = rheo['press0']
+    else:
+        press0 = press0_d
+        rheo['press0'] = press0
+
+    recip_e2 = 1./(e*e)
+    recip_efr2 = 1./(efr*efr)
+    efr2_recip_e4 = e**2/(efr**4)
 
     ### Computing Delta
     # deltaCsq=ep*ep+recip_e2*(em*em+4.0*np.abs(e12*e21))
-    deltaCsq=ep*ep+recip_e2*(np.abs(em*em+4.0*e12*e21))
+    deltaCsq=ep*ep+efr2_recip_e4*(np.abs(em*em+4.0*e12*e21))
     # deltaCsq=ep*ep+recip_e2*(em*em+4.0*e12*e21)
 
     deltaC=np.sqrt(deltaCsq)
@@ -145,61 +196,88 @@ def ellip(ep,em,e12,e21,e=2):
     ## with a smooth tanh function
     if SEAICE_ZETA_SMOOTHREG:
       argTmp = np.exp(-1./(deltaCreg*SEAICE_zetaMaxFac))
-      zeta=ZMAX*(1.-argTmp)/(1.+argTmp)*(1.+tnsFac)
+      zeta=ZMAX*(1.-argTmp)/(1.+argTmp)*(1.+kt)
     ## with a sharp min function
     else:
-      zeta=press0*(1.+tnsFac)/(2.*deltaCreg)
+      zeta=press0*(1.+kt)/(2.*deltaCreg)
       zeta=np.minimum(zeta,ZMAX)
     zeta=np.maximum(zeta,ZMIN)
 
     ### Computing eta
-    eta=zeta/e**2
+    eta=zeta*recip_efr2
 
     ### Computing pressure pressure
-    press=(press0*(1.-SEAICEpressReplFac)+2.*zeta*deltaC*SEAICEpressReplFac/(1.+tnsFac))*(1.-tnsFac)
+    press = 0.5*(press0*(1.-SEAICEpressReplFac)+2.*zeta*deltaC*SEAICEpressReplFac/(1.+kt))*(1.-kt)
 
-    return zeta, eta, press
+    ### save in the dictionary
+    data[rheo_n] = rheo
+    data[rheo_n]['zeta'] = zeta
+    data[rheo_n]['eta'] = eta
+    data[rheo_n]['press'] = press
+
+    return None
+
 
 ##########
 # STRESSES
 ##########
 
-def compu_sigma(e11,e22,e12,e21,zeta,eta,press,plot=False):
-    
-    ep=e11+e22
-    em=e11-e22
+def compute_stress(data={}):
 
-    sig11=zeta*ep+eta*em-press/2.0
-    sig22=zeta*ep-eta*em-press/2.0
-    sig12=2*e21*eta
-    sig21=2*e12*eta
+    for rheo_n in data['rheos']:
+        compu_sigma(data=data, rheo_n=rheo_n)
+        comp_str_inva(data=data, rheo_n=rheo_n)
+
+    return None
+
+# def compu_sigma(e11,e22,e12,e21,zeta,eta,press,plot=False):
+def compu_sigma(data={}, rheo_n='', plot=False):
+
+    zeta = data[rheo_n]['zeta']
+    eta = data[rheo_n]['eta']
+    press = data[rheo_n]['press']
+    ep = data['ep']
+    em = data['em']
+    e21 = data['e21']
+    e12 = data['e12']
+
+    data[rheo_n]['sig11'] = zeta*ep+eta*em-press
+    data[rheo_n]['sig22'] = zeta*ep-eta*em-press
+    data[rheo_n]['sig12'] = 2*e21*eta
+    data[rheo_n]['sig21'] = 2*e12*eta
 
     if plot :
         plt.figure('sig11')
-        plt.pcolormesh(sig11)
+        plt.pcolormesh(data[rheo_n]['sig11'])
         plt.axis('equal')
         plt.colorbar()
 
         plt.figure('sig22')
-        plt.pcolormesh(sig22)
+        plt.pcolormesh(data[rheo_n]['sig22'])
         plt.axis('equal')
         plt.colorbar()
 
         plt.figure('sig12')
-        plt.pcolormesh(sig12)
+        plt.pcolormesh(data[rheo_n]['sig12'])
         plt.axis('equal')
         plt.colorbar()
 
         plt.figure('sig21')
-        plt.pcolormesh(sig21)
+        plt.pcolormesh(data[rheo_n]['sig21'])
         plt.axis('equal')
         plt.colorbar()
 
         plt.show()
 
-    return sig11, sig12, sig21, sig22
+    return None
 
-def comp_princ_stress(sig11, sig12, sig22, sig21):
+def comp_princ_stress(data={}, rheo_n=''):
+
+    sig11 = data[rheo_n]['sig11']
+    sig12 = data[rheo_n]['sig12']
+    sig22 = data[rheo_n]['sig22']
+    sig21 = data[rheo_n]['sig21']
+    press0 = data[rheo_n]['press0']
 
     sigp=sig11+sig22
     sigm=sig11-sig22
@@ -207,41 +285,63 @@ def comp_princ_stress(sig11, sig12, sig22, sig21):
     sigTmp=np.sqrt(np.abs(sigm**2+4*sig12*sig21))
     # sigTmp=np.sqrt(sigm**2+4*sig12*sig21)
 
-    sig1=0.5*(sigp+sigTmp)*1/press0
-    sig2=0.5*(sigp-sigTmp)*1/press0
+    data[rheo_n]['sig1']=0.5*(sigp+sigTmp)/press0
+    data[rheo_n]['sig2']=0.5*(sigp-sigTmp)/press0
 
-    return sig1,sig2
+    return None
 
-def comp_str_inva(sig11, sig12, sig22, sig21, plot=False):
+def comp_str_inva(data={}, rheo_n='', plot=False):
 
-    sig1, sig2 = comp_princ_stress(sig11, sig12, sig22, sig21)
+    comp_princ_stress(data=data, rheo_n=rheo_n)
 
-    sigI=0.5*(sig1+sig2)
-    sigII=0.5*(sig1-sig2)
+    sig1 = data[rheo_n]['sig1']
+    sig2 = data[rheo_n]['sig2']
+
+    data[rheo_n]['sigI'] = 0.5*(sig1+sig2)
+    data[rheo_n]['sigII'] = 0.5*(sig1-sig2)
 
     if plot :
         plt.figure('sigI')
-        plt.pcolormesh(sigI)
+        plt.pcolormesh(data[rheo_n]['sigI'])
         plt.axis('equal')
         plt.colorbar()
 
         plt.figure('sigII')
-        plt.pcolormesh(sigII)
+        plt.pcolormesh(data[rheo_n]['sigII'])
         plt.axis('equal')
         plt.colorbar()
 
         plt.show()
 
-    return sigI, sigII
+    return None
 
-########## 
+##########
 # PLOTTING
 ##########
 
-def plot_inv(sigI,sigII,eI,eII,opt=None,arrows=False,ax=None,carg=None):
+def plot_stress(data={}):
+
+    fig1=plt.figure('stress states')
+    ax = fig1.gca()
+    plt.grid()
+    plt.axis('equal')
+
+    for rheo_n in data['rheos']:
+        plot_inv(data=data, rheo_n=rheo_n, ax=ax, arrows=True)
+
+    return None
+
+
+# def plot_inv(sigI,sigII,eI,eII,opt=None,arrows=False,ax=None,carg=None):
+def plot_inv(data={}, rheo_n='', opt=None, arrows=False, ax=None, carg=None):
     '''
     Plotting the yield curve in invariant coordinate
     '''
+
+    sigI = data[rheo_n]['sigI']
+    sigII = data[rheo_n]['sigII']
+    eI = data['eI']
+    eII = data['eII']
 
     if ax==None :
         fig1=plt.figure()
@@ -249,13 +349,13 @@ def plot_inv(sigI,sigII,eI,eII,opt=None,arrows=False,ax=None,carg=None):
         plt.grid()
         plt.axis('equal')
 
-    if carg != None : 
-        ax.plot(sigI,sigII,carg)
+    if carg != None :
+        ax.scatter(sigI,sigII,carg)
     else:
-        ax.plot(sigI,sigII)
+        ax.scatter(sigI,sigII, s=0.5)
 
     if arrows :
-        qpfac=1
+        qpfac=20
         eu=np.hypot(eI[::qpfac,::qpfac],eII[::qpfac,::qpfac])
         ax.quiver(sigI[::qpfac,::qpfac],sigII[::qpfac,::qpfac],eI[::qpfac,::qpfac]/eu,eII[::qpfac,::qpfac]/eu,scale=10)
 

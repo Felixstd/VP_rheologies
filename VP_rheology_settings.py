@@ -1,14 +1,12 @@
 #!/usr/bin python
 
-### SETTINGS AND PARAMETERS
+### SETTINGS AND DEFAULT PARAMETERS
 
 ### Parameters
-e=2.0 ## Aspect ratio of the ellipse
-e_2=2.0 ## Aspect ratio of the plastic potential (flow rule)
-recip_e2=1.0/(e**2.0) #e^-2
-SEAICE_strength=2.75e4
-tnsFac=0.05 # adding tensile strength, proportinnal to P*
-press0=SEAICE_strength # in this case, we assume A=1 and H=1
+e_d=2.0 ## Aspect ratio of the ellipse
+SEAICE_strength_d=2.75e4
+tnsFac_d=0.05 # adding tensile strength, proportinnal to P*
+press0_d=SEAICE_strength_d # in this case, we assume A=1 and H=1
 SEAICEpressReplFac=1.0 # using the replacement pressure
 
 # TD parameters
@@ -16,9 +14,9 @@ q=0.5 #TD factor
 SEAICEmcMuTD=1.0
 
 ## Morh-Coulomb parameters
-SEAICEmcMu=0.7
-tnsFac_mc=tnsFac
-SEAICEmcC=SEAICEmcMu*tnsFac_mc*SEAICE_strength
+SEAICEmcMu_d=0.7
+tnsFac_mc_d=tnsFac_d
+SEAICEmcC_d=SEAICEmcMu_d*tnsFac_mc_d*SEAICE_strength_d
 
 # tnsFac_zeta=max(tnsFac,tnsFac_mc)
 
@@ -31,12 +29,12 @@ deltaMinSq=deltaMin**2
 ## For Zeta
 SEAICE_ZETA_SMOOTHREG=True
 SEAICE_zetaMaxFac=2.5e8
-ZMAX=SEAICE_zetaMaxFac*SEAICE_strength
+ZMAX=SEAICE_zetaMaxFac*SEAICE_strength_d
 ZMIN=1e-20
 
 # for Eta
 SEAICE_etaMaxFac=2.5e10
-# EMAX=SEAICE_etaMaxFac*SEAICE_strength
+# EMAX=SEAICE_etaMaxFac*SEAICE_strength_d
 
 ## For the MC truncating
 SEAICE_TMC_SMOOTHMIN=False

@@ -34,9 +34,11 @@ data['rheos']=[]
 # Ellipse with rotation 'name':{'rheo_t':'ell_rot', 'e':2.0, 'kt':0.5},
 
 rheo_to_viz = {
-    'ell2':{'rheo_t':'ell', 'e':2.0, 'kt':0.05},
-    'ell4':{'rheo_t':'ell', 'e':4.0, 'kt':0.05},
-    'elr2':{'rheo_t':'ell', 'e':2.0, 'efr':4.0, 'kt':0.05},
+    # 'ell2':{'rheo_t':'ell', 'e':2.0, 'kt':0.05},
+    'ell4':{'rheo_t':'ell', 'e':8.0, 'kt':0.0},
+    'e2r4':{'rheo_t':'ell', 'e':1.0, 'efr':4.0, 'kt':0.00},
+    # 'mcs07':{'rheo_t':'mcs', 'mu':0.7, 'kt':0.05},
+    # 'mc.7e4':{'rheo_t':'mce', 'mu':0.7, 'kt':0.05, 'e':4.0},
 }
 
 #######################
@@ -51,14 +53,18 @@ compute_visc(data=data, rheos=rheo_to_viz)
 
 compute_stress(data=data)
 
-for rheo_n in data['rheos']:
-    print(data[rheo_n].keys())
+# for rheo_n in data['rheos']:
+    # print(data[rheo_n].keys())
 
 ###################
 # PLOTTING STRESSES
 ###################
 
 plot_stress(data=data)
+
+plot_FR(data=data)
+
+plot_prAng(data=data)
 
 #################################
 # TEST FOR THE EFFECT OF ROTATION

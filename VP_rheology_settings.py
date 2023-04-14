@@ -7,7 +7,7 @@ e_d=2.0 ## Aspect ratio of the ellipse
 SEAICE_strength_d=2.75e4
 tnsFac_d=0.05 # adding tensile strength, proportinnal to P*
 press0_d=SEAICE_strength_d # in this case, we assume A=1 and H=1
-SEAICEpressReplFac=1.0 # using the replacement pressure
+SEAICEpressReplFac=0.0 # using the replacement pressure
 
 # TD parameters
 q=0.5 #TD factor

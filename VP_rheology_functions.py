@@ -131,6 +131,14 @@ def compute_visc(data={},rheos={}):
             ellip(data=data, rheo=rheos[rheo_n], rheo_n = rheo_n)
         elif rheos[rheo_n]['rheo_t'] == 'ell_rot' :
             ellip(data=data, rheo=rheos[rheo_n], rheo_n = rheo_n, rot=True)
+        elif rheos[rheo_n]['rheo_t'] == 'mce' :
+            mce(data=data, rheo=rheos[rheo_n], rheo_n = rheo_n)
+        elif rheos[rheo_n]['rheo_t'] == 'mcs' :
+            mcs(data=data, rheo=rheos[rheo_n], rheo_n = rheo_n)
+        elif rheos[rheo_n]['rheo_t'] == 'mcpl' :
+            mctd(data=data, rheo=rheos[rheo_n], rheo_n = rheo_n)
+        elif rheos[rheo_n]['rheo_t'] == 'mctd' :
+            mcpl(data=data, rheo=rheos[rheo_n], rheo_n = rheo_n)
 
     return None
 
@@ -156,11 +164,13 @@ def ellip(data={}, rheo={}, rheo_n = '', rot=False):
         e = e_d
         rheo['e'] = e
 
-    # load rheo parameters
     if 'efr' in rheo:
         efr = rheo['efr']
-    else:
+    elif e != 2:
         efr = e
+        rheo['efr'] = efr
+    else:
+        efr = e_d
         rheo['efr'] = efr
 
     if 'kt' in rheo:
@@ -187,20 +197,20 @@ def ellip(data={}, rheo={}, rheo_n = '', rot=False):
     deltaC=np.sqrt(deltaCsq)
     ## with a sqrt function
     if SEAICE_DELTA_SMOOTHREG :
-      deltaCreg = np.sqrt(deltaCsq + deltaMinSq)
+        deltaCreg = np.sqrt(deltaCsq + deltaMinSq)
     ## with a sharp min function
     else:
-      deltaCreg = np.sqrt(np.maximum(deltaCsq,deltaMinSq))
+        deltaCreg = np.sqrt(np.maximum(deltaCsq,deltaMinSq))
 
     ### Computing Zeta
     ## with a smooth tanh function
     if SEAICE_ZETA_SMOOTHREG:
-      argTmp = np.exp(-1./(deltaCreg*SEAICE_zetaMaxFac))
-      zeta=ZMAX*(1.-argTmp)/(1.+argTmp)*(1.+kt)
+        argTmp = np.exp(-1./(deltaCreg*SEAICE_zetaMaxFac))
+        zeta=ZMAX*(1.-argTmp)/(1.+argTmp)*(1.+kt)
     ## with a sharp min function
     else:
-      zeta=press0*(1.+kt)/(2.*deltaCreg)
-      zeta=np.minimum(zeta,ZMAX)
+        zeta=press0*(1.+kt)/(2.*deltaCreg)
+        zeta=np.minimum(zeta,ZMAX)
     zeta=np.maximum(zeta,ZMIN)
 
     ### Computing eta
@@ -208,6 +218,168 @@ def ellip(data={}, rheo={}, rheo_n = '', rot=False):
 
     ### Computing pressure pressure
     press = 0.5*(press0*(1.-SEAICEpressReplFac)+2.*zeta*deltaC*SEAICEpressReplFac/(1.+kt))*(1.-kt)
+
+    ### save in the dictionary
+    data[rheo_n] = rheo
+    data[rheo_n]['zeta'] = zeta
+    data[rheo_n]['eta'] = eta
+    data[rheo_n]['press'] = press
+
+    return None
+
+def mce(data={}, rheo={}, rheo_n = ''):
+    '''
+    MC-E rheology
+    '''
+
+    # load data
+    ep = data['ep']
+    em = data['em']
+    e12 = data['e12s']
+    eII  = data['eII']
+
+    # load rheo parameters
+    if 'e' in rheo:
+        e = rheo['e']
+    else:
+        e = e_d
+        rheo['e'] = e
+
+    if 'kt' in rheo:
+        kt = rheo['kt']
+    else:
+        kt = tnsFac_d
+        rheo['kt'] = kt
+
+    if 'mu' in rheo:
+        mu = rheo['mu']
+    else:
+        mu = SEAICEmcMu_d
+        rheo['mu'] = mu
+
+    if 'press0' in rheo:
+        press0 = rheo['press0']
+    else:
+        press0 = press0_d
+        rheo['press0'] = press0
+
+    recip_e2 = 1/e**2
+
+    # compute delta
+    deltaCsq = ep*ep+recip_e2*(np.abs(em*em+4.0*e12**2))
+
+    deltaC = np.sqrt(deltaCsq)
+    ## with a sqrt function
+    if SEAICE_DELTA_SMOOTHREG :
+        deltaCreg = np.sqrt(deltaCsq + deltaMinSq)
+    ## with a sharp min function
+    else:
+        deltaCreg = np.sqrt(np.maximum(deltaCsq,deltaMinSq))
+
+    ### Computing Zeta
+    ## with a smooth tanh function
+    if SEAICE_ZETA_SMOOTHREG:
+        argTmp = np.exp(-1./(deltaCreg*SEAICE_zetaMaxFac))
+        zeta = ZMAX*(1.-argTmp)/(1.+argTmp)*(1.+kt)
+    ## with a sharp min function
+    else:
+        zeta = press0*(1.+kt)/(2.*deltaCreg)
+        zeta = np.minimum(zeta,ZMAX)
+    zeta = np.maximum(zeta,ZMIN)
+
+    ### Computing pressure pressure
+    press = 0.5*(press0*(1.-SEAICEpressReplFac)+2.*zeta*deltaC*SEAICEpressReplFac/(1.+kt))*(1.-kt)
+
+    ### Computing eta
+    eta = mu*(press-zeta*(ep)+kt*press0)/(2*np.maximum(deltaMin,eII))
+
+    ### save in the dictionary
+    data[rheo_n] = rheo
+    data[rheo_n]['zeta'] = zeta
+    data[rheo_n]['eta'] = eta
+    data[rheo_n]['press'] = press
+
+    return None
+
+
+def mcs(data={}, rheo={}, rheo_n = ''):
+    '''
+    MC-S rheology
+    '''
+
+    # load data
+    ep = data['ep']
+    em = data['em']
+    e12 = data['e12s']
+    eII = data['eII']
+
+    if 'kt' in rheo:
+        kt = rheo['kt']
+    else:
+        kt = tnsFac_d
+        rheo['kt'] = kt
+
+    if 'mu' in rheo:
+        mu = rheo['mu']
+    else:
+        mu = SEAICEmcMu_d
+        rheo['mu'] = mu
+
+    if 'press0' in rheo:
+        press0 = rheo['press0']
+    else:
+        press0 = press0_d
+        rheo['press0'] = press0
+
+    # compute the viscosities
+    zeta = np.minimum(press0*(1+kt)/(2.*deltaMin),press0*(1+kt)/(2.*np.fabs(ep)))
+
+    # press = (press0 * (1.-SEAICEpressReplFac) + SEAICEpressReplFac * 2 * zeta * np.fabs(ep)/(1.+kt))*(1.-kt)
+    press = 0.5 * press0 * ( 1. - kt )
+
+    eta = mu*(press-zeta*(ep)+kt*press0)/(2*np.maximum(deltaMin,eII))
+
+    ### save in the dictionary
+    data[rheo_n] = rheo
+    data[rheo_n]['zeta'] = zeta
+    data[rheo_n]['eta'] = eta
+    data[rheo_n]['press'] = press
+
+    return None
+
+
+def mctd(data={}, rheo={}, rheo_n = ''):
+    '''
+    MC-TD rheology
+    '''
+
+    # load data
+    ep = data['ep']
+    em = data['em']
+    e12 = data['e12s']
+
+
+
+    ### save in the dictionary
+    data[rheo_n] = rheo
+    data[rheo_n]['zeta'] = zeta
+    data[rheo_n]['eta'] = eta
+    data[rheo_n]['press'] = press
+
+    return None
+
+
+def mcpl(data={}, rheo={}, rheo_n = ''):
+    '''
+    MC-PL rheology
+    '''
+
+    # load data
+    ep = data['ep']
+    em = data['em']
+    e12 = data['e12s']
+
+
 
     ### save in the dictionary
     data[rheo_n] = rheo
@@ -230,7 +402,6 @@ def compute_stress(data={}):
 
     return None
 
-# def compu_sigma(e11,e22,e12,e21,zeta,eta,press,plot=False):
 def compu_sigma(data={}, rheo_n='', plot=False):
 
     zeta = data[rheo_n]['zeta']
@@ -325,12 +496,15 @@ def plot_stress(data={}):
     ax = fig1.gca()
     plt.grid()
     plt.axis('equal')
+    ax.set_ylabel('Sigma II')
+    ax.set_xlabel('Sigma I')
 
     for rheo_n in data['rheos']:
         plot_inv(data=data, rheo_n=rheo_n, ax=ax, arrows=True)
 
-    return None
+    ax.legend()
 
+    return None
 
 # def plot_inv(sigI,sigII,eI,eII,opt=None,arrows=False,ax=None,carg=None):
 def plot_inv(data={}, rheo_n='', opt=None, arrows=False, ax=None, carg=None):
@@ -350,14 +524,15 @@ def plot_inv(data={}, rheo_n='', opt=None, arrows=False, ax=None, carg=None):
         plt.axis('equal')
 
     if carg != None :
-        ax.scatter(sigI,sigII,carg)
+        ax.scatter(sigI, sigII, carg, label=rheo_n)
     else:
-        ax.scatter(sigI,sigII, s=0.5)
+        p = ax.plot(sigI.ravel(), sigII.ravel(), '.', ms=1, label=rheo_n)
+        carg = p[0].get_color()
 
     if arrows :
         qpfac=20
         eu=np.hypot(eI[::qpfac,::qpfac],eII[::qpfac,::qpfac])
-        ax.quiver(sigI[::qpfac,::qpfac],sigII[::qpfac,::qpfac],eI[::qpfac,::qpfac]/eu,eII[::qpfac,::qpfac]/eu,scale=10)
+        ax.quiver(sigI[::qpfac,::qpfac],sigII[::qpfac,::qpfac],eI[::qpfac,::qpfac]/eu,eII[::qpfac,::qpfac]/eu, scale=10, color=carg)
 
     if opt=='ellipse':
         t=tnsFac
@@ -367,3 +542,100 @@ def plot_inv(data={}, rheo_n='', opt=None, arrows=False, ax=None, carg=None):
         ax.add_patch(elli)
 
     return None
+
+
+def plot_FR(data={}):
+
+    fig1=plt.figure('flow rule')
+    ax = fig1.gca()
+    plt.grid()
+    ax.set_xlabel('epsI/epsII')
+    ax.set_ylabel('Sigma I')
+
+    for rheo_n in data['rheos']:
+        plot_sIFR(data=data, rheo_n=rheo_n, ax=ax)
+
+    ax.legend()
+
+    return None
+
+def plot_sIFR(data={}, rheo_n='', ax=None, carg=None, opt=None):
+
+    '''
+    Plotting the the flow rule as function of sI
+    '''
+
+    sigI = data[rheo_n]['sigI']
+    eI = data['eI']
+    eII = data['eII']
+
+    if ax==None :
+        fig1=plt.figure()
+        ax = fig1.gca()
+        plt.grid()
+        plt.axis('equal')
+
+    if carg != None :
+        # ax.plot(sigI.ravel(),(eI/eII).ravel(),'.', color=carg, ms=4, label=rheo_n)
+        ax.plot((eI/eII).ravel(),sigI.ravel(),'.', color=carg, ms=4, label=rheo_n, alpha=0.5)
+    else:
+        # p = ax.plot(sigI.ravel(),(eI/eII).ravel(),'.', ms=4, label=rheo_n)
+        p = ax.plot((eI/eII).ravel(),sigI.ravel(),'.', ms=4, label=rheo_n, alpha=0.5)
+        carg = p[0].get_color()
+
+    return None
+
+
+def plot_prAng(data={}):
+
+
+    fig1=plt.figure('principal axes orientation')
+    ax = fig1.gca()
+    plt.grid()
+    plt.axis('equal')
+    ax.set_xlabel('principal stress orientation')
+    ax.set_ylabel('principal strain rate orientation')
+
+    for rheo_n in data['rheos']:
+        plot_prAng_ori(data=data, rheo_n=rheo_n, ax=ax)
+
+    ax.legend()
+
+    return None
+
+def plot_prAng_ori(data={}, rheo_n='', ax=None, carg=None, opt=None):
+
+    '''
+    Plotting the the flow rule as function of sI
+    '''
+
+    sig11 = data[rheo_n]['sig12']
+    sig22 = data[rheo_n]['sig22']
+    sig12 = data[rheo_n]['sig12']
+
+    e11 = data['e11']
+    e22 = data['e22']
+    e12 = data['e12']
+
+    psi_st = 0.5 * np.arctan2(2*sig12,(sig11-sig22)) * 180/np.pi
+    psi_sr = 0.5 * np.arctan2(2*e12,(e11-e22)) * 180/np.pi
+
+    if ax==None :
+        fig1=plt.figure()
+        ax = fig1.gca()
+        plt.grid()
+        plt.axis('equal')
+
+    if carg != None :
+        # ax.plot(sigI.ravel(),(eI/eII).ravel(),'.', color=carg, ms=4, label=rheo_n)
+        ax.plot(psi_st.ravel(),psi_sr.ravel(),'.', color=carg, ms=4, label=rheo_n, alpha=0.5)
+    else:
+        # p = ax.plot(sigI.ravel(),(eI/eII).ravel(),'.', ms=4, label=rheo_n)
+        p = ax.plot(psi_st.ravel(),psi_sr.ravel(),'.', ms=4, label=rheo_n, alpha=0.5)
+        carg = p[0].get_color()
+
+    return None
+
+
+
+

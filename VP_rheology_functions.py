@@ -618,7 +618,7 @@ def plot_prAng_ori(data={}, rheo_n='', ax=None, carg=None, opt=None):
     e12 = data['e12']
 
     psi_st = 0.5 * np.arctan2(2*sig12,(sig11-sig22)) * 180/np.pi
-    psi_sr = 0.5 * np.arctan2(2*e12,(e11-e22)) * 180/np.pi
+    psi_sr = 0.5 * np.arctan2(e12,(e11-e22)) * 180/np.pi
 
     if ax==None :
         fig1=plt.figure()

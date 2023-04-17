@@ -136,9 +136,13 @@ def compute_visc(data={},rheos={}):
         elif rheos[rheo_n]['rheo_t'] == 'mcs' :
             mcs(data=data, rheo=rheos[rheo_n], rheo_n = rheo_n)
         elif rheos[rheo_n]['rheo_t'] == 'mcpl' :
-            mctd(data=data, rheo=rheos[rheo_n], rheo_n = rheo_n)
-        elif rheos[rheo_n]['rheo_t'] == 'mctd' :
             mcpl(data=data, rheo=rheos[rheo_n], rheo_n = rheo_n)
+        elif rheos[rheo_n]['rheo_t'] == 'mctd' :
+            mctd(data=data, rheo=rheos[rheo_n], rheo_n = rheo_n)
+        elif rheos[rheo_n]['rheo_t'] == 'pl' :
+            pl(data=data, rheo=rheos[rheo_n], rheo_n = rheo_n)
+        elif rheos[rheo_n]['rheo_t'] == 'td' :
+            td(data=data, rheo=rheos[rheo_n], rheo_n = rheo_n)
 
     return None
 
@@ -188,6 +192,9 @@ def ellip(data={}, rheo={}, rheo_n = '', rot=False):
     recip_e2 = 1./(e*e)
     recip_efr2 = 1./(efr*efr)
     efr2_recip_e4 = e**2/(efr**4)
+    print('recip_e2',recip_e2)
+    print('recip_efr2',recip_efr2)
+    print('efr2_recip_e4',efr2_recip_e4)
 
     ### Computing Delta
     # deltaCsq=ep*ep+recip_e2*(em*em+4.0*np.abs(e12*e21))
@@ -352,13 +359,45 @@ def mctd(data={}, rheo={}, rheo_n = ''):
     '''
     MC-TD rheology
     '''
+    print('Computing MC-TD rheology')
+
 
     # load data
-    ep = data['ep']
-    em = data['em']
-    e12 = data['e12s']
+    eI = data['eI']
+    eII = data['eII']
 
+    if 'mu' in rheo:
+        mu = rheo['mu']
+    else:
+        mu = SEAICEmcMu_d
+        rheo['mu'] = mu
 
+    if 'kt' in rheo:
+        kt = rheo['kt']
+    else:
+        kt = tnsFac_d
+        rheo['kt'] = kt
+
+    if 'press0' in rheo:
+        press0 = rheo['press0']
+    else:
+        press0 = press0_d
+        rheo['press0'] = press0
+
+    k = eI / ( eII + 1e-20)
+    x = (-(6.*(1.+kt)-2*k*k)+2.*k*np.sqrt(k*k+3. * (1.+kt)))/9. + kt
+
+    alpha = 0.95
+
+    x = np.minimum( x, alpha*kt )
+
+    cyc = (2. - kt)/3.
+
+    zeta = ( x + cyc ) / np.copysign(np.maximum(2*np.fabs(eI), 1e-20),eI) * press0
+
+    eta = - press0 * mu * ( x - kt ) / ( 2*eII + 1e-20 )
+
+    press = cyc * press0
 
     ### save in the dictionary
     data[rheo_n] = rheo
@@ -373,13 +412,141 @@ def mcpl(data={}, rheo={}, rheo_n = ''):
     '''
     MC-PL rheology
     '''
+    print('Computing MC-PL rheology')
+
 
     # load data
-    ep = data['ep']
-    em = data['em']
-    e12 = data['e12s']
+    eI = data['eI']
+    eII = data['eII']
+
+    if 'kt' in rheo:
+        kt = rheo['kt']
+    else:
+        kt = tnsFac_d
+        rheo['kt'] = kt
+
+    if 'press0' in rheo:
+        press0 = rheo['press0']
+    else:
+        press0 = press0_d
+        rheo['press0'] = press0
+
+    if 'mu' in rheo:
+        mu = rheo['mu']
+    else:
+        mu = SEAICEmcMu_d
+        rheo['mu'] = mu
 
 
+    k = eI / (eII + 1e-20) # 0
+
+    x = 0.5 * (k - 1 + kt) #
+
+    alpha=0.95
+    x = np.minimum( x, alpha*kt )
+    x = np.maximum( x, -1+(1-alpha)*kt )
+
+    cyc = 0.5 * (1 - kt)
+
+    zeta = ( x + cyc ) / np.copysign(np.maximum(2*np.fabs(eI), deltaMinSq),eI) * press0
+
+    eta = - press0 * mu * ( x - kt ) / ( 2*eII + 1e-20 )
+
+    press = cyc * press0
+
+    ### save in the dictionary
+    data[rheo_n] = rheo
+    data[rheo_n]['zeta'] = zeta
+    data[rheo_n]['eta'] = eta
+    data[rheo_n]['press'] = press
+
+    return None
+
+
+def td(data={}, rheo={}, rheo_n = ''):
+    '''
+    TD rheology
+    '''
+    print('Computing TD rheology')
+
+    # load data
+    eI = data['eI']
+    eII = data['eII']
+
+    if 'kt' in rheo:
+        kt = rheo['kt']
+    else:
+        kt = tnsFac_d
+        rheo['kt'] = kt
+
+    if 'press0' in rheo:
+        press0 = rheo['press0']
+    else:
+        press0 = press0_d
+        rheo['press0'] = press0
+
+    k = eI / ( eII + 1e-20)
+    x = (-(6.*(1.+kt)-2*k*k)+2.*k*np.sqrt(k*k+3. * (1.+kt)))/9. + kt
+
+    alpha = 0.95
+
+    x = np.minimum( x, alpha*kt )
+
+    cyc = (2. - kt)/3.
+
+    zeta = ( x + cyc ) / np.copysign(np.maximum(2*np.fabs(eI), deltaMinSq),eI) * press0
+
+    eta = - ( x - kt ) * np.sqrt( 1. + x ) * press0 / (2*eII + 1e-20)
+
+    press = cyc * press0
+
+    ### save in the dictionary
+    data[rheo_n] = rheo
+    data[rheo_n]['zeta'] = zeta
+    data[rheo_n]['eta'] = eta
+    data[rheo_n]['press'] = press
+
+    return None
+
+
+def pl(data={}, rheo={}, rheo_n = ''):
+    '''
+    PL rheology
+    '''
+    print('Computing PL rheology')
+
+    # load data
+    eI = data['eI']
+    eII = data['eII']
+
+    if 'kt' in rheo:
+        kt = rheo['kt']
+    else:
+        kt = tnsFac_d
+        rheo['kt'] = kt
+
+    if 'press0' in rheo:
+        press0 = rheo['press0']
+    else:
+        press0 = press0_d
+        rheo['press0'] = press0
+
+
+    k = eI / (eII + 1e-20) # 0
+
+    x = 0.5 * (k - 1 + kt) #
+
+    alpha=0.95
+    x = np.minimum( x, alpha*kt )
+    x = np.maximum( x, -1+(1-alpha)*kt )
+
+    cyc = 0.5 * (1 - kt)
+
+    zeta = ( x + cyc ) / np.copysign(np.maximum(2*np.fabs(eI), deltaMinSq),eI) * press0
+
+    eta = - ( x - kt ) * ( 1. + x ) * press0 / (2*eII + 1e-20)
+
+    press = cyc * press0
 
     ### save in the dictionary
     data[rheo_n] = rheo
@@ -556,6 +723,7 @@ def plot_FR(data={}):
         plot_sIFR(data=data, rheo_n=rheo_n, ax=ax)
 
     ax.legend()
+    ax.set_xlim([-1.5,1.5])
 
     return None
 

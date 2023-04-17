@@ -143,6 +143,10 @@ def compute_visc(data={},rheos={}):
             pl(data=data, rheo=rheos[rheo_n], rheo_n = rheo_n)
         elif rheos[rheo_n]['rheo_t'] == 'td' :
             td(data=data, rheo=rheos[rheo_n], rheo_n = rheo_n)
+        elif rheos[rheo_n]['rheo_t'] == 'epl' :
+            epl(data=data, rheo=rheos[rheo_n], rheo_n = rheo_n)
+        elif rheos[rheo_n]['rheo_t'] == 'etd' :
+            etd(data=data, rheo=rheos[rheo_n], rheo_n = rheo_n)
 
     return None
 
@@ -150,6 +154,8 @@ def ellip(data={}, rheo={}, rheo_n = '', rot=False):
     '''
     ELLIPTICAL YIELD CURVE
     '''
+    print('Computing Ellipse rheology')
+
 
     # load data
     ep = data['ep']
@@ -191,17 +197,15 @@ def ellip(data={}, rheo={}, rheo_n = '', rot=False):
 
     recip_e2 = 1./(e*e)
     recip_efr2 = 1./(efr*efr)
-    efr2_recip_e4 = e**2/(efr**4)
-    print('recip_e2',recip_e2)
-    print('recip_efr2',recip_efr2)
-    print('efr2_recip_e4',efr2_recip_e4)
+    e2_recip_efr4 = e**2/(efr**4)
 
     ### Computing Delta
     # deltaCsq=ep*ep+recip_e2*(em*em+4.0*np.abs(e12*e21))
-    deltaCsq=ep*ep+efr2_recip_e4*(np.abs(em*em+4.0*e12*e21))
+    # deltaCsq=ep*ep+e2_recip_efr4*(np.abs(em*em+4.0*e12*e21))
+    deltaCsq = ep**2 + e2_recip_efr4 * (em**2 + 4.0*e12**2)
     # deltaCsq=ep*ep+recip_e2*(em*em+4.0*e12*e21)
 
-    deltaC=np.sqrt(deltaCsq)
+    deltaC = np.sqrt(deltaCsq)
     ## with a sqrt function
     if SEAICE_DELTA_SMOOTHREG :
         deltaCreg = np.sqrt(deltaCsq + deltaMinSq)
@@ -238,6 +242,8 @@ def mce(data={}, rheo={}, rheo_n = ''):
     '''
     MC-E rheology
     '''
+    print('Computing MC-E rheology')
+
 
     # load data
     ep = data['ep']
@@ -313,6 +319,7 @@ def mcs(data={}, rheo={}, rheo_n = ''):
     '''
     MC-S rheology
     '''
+    print('Computing MC-S rheology')
 
     # load data
     ep = data['ep']
@@ -542,9 +549,116 @@ def pl(data={}, rheo={}, rheo_n = ''):
 
     cyc = 0.5 * (1 - kt)
 
-    zeta = ( x + cyc ) / np.copysign(np.maximum(2*np.fabs(eI), deltaMinSq),eI) * press0
+    zeta = ( x + cyc ) / np.copysign(np.maximum(2*np.fabs(eI), 1e-20),eI) * press0
 
     eta = - ( x - kt ) * ( 1. + x ) * press0 / (2*eII + 1e-20)
+
+    press = cyc * press0
+
+    ### save in the dictionary
+    data[rheo_n] = rheo
+    data[rheo_n]['zeta'] = zeta
+    data[rheo_n]['eta'] = eta
+    data[rheo_n]['press'] = press
+
+    return None
+
+def etd(data={}, rheo={}, rheo_n = ''):
+    '''
+    E-TD rheology
+    '''
+    print('Computing E-TD rheology')
+
+    # load data
+    eI = data['eI']
+    eII = data['eII']
+
+    # load rheo parameters
+    if 'e' in rheo:
+        e = rheo['e']
+    else:
+        e = e_d
+        rheo['e'] = e
+
+    if 'kt' in rheo:
+        kt = rheo['kt']
+    else:
+        kt = tnsFac_d
+        rheo['kt'] = kt
+
+    if 'press0' in rheo:
+        press0 = rheo['press0']
+    else:
+        press0 = press0_d
+        rheo['press0'] = press0
+
+    k = eI / ( eII + 1e-20)
+
+    x = (-(6.*(1.+kt)-2*k*k)+2.*k*np.sqrt(k*k+3. * (1.+kt)))/9. + kt
+
+    alpha = 0.99
+
+    x = np.minimum( x, alpha*kt )
+
+    cyc = (2. - kt) / 3.
+
+    zeta = (x + cyc) / np.copysign(np.maximum(2*np.fabs(eI), 1e-20),eI) * press0
+
+    eta = 1. / e * np.sqrt( kt - x * ( x + 1-kt ) ) / (2 * eII + 1e-20) * press0
+
+    press = cyc * press0
+
+    ### save in the dictionary
+    data[rheo_n] = rheo
+    data[rheo_n]['zeta'] = zeta
+    data[rheo_n]['eta'] = eta
+    data[rheo_n]['press'] = press
+
+    return None
+
+def epl(data={}, rheo={}, rheo_n = ''):
+    '''
+    E-PL rheology
+    '''
+    print('Computing E-PL rheology')
+
+    # load data
+    eI = data['eI']
+    eII = data['eII']
+
+    # load rheo parameters
+    if 'e' in rheo:
+        e = rheo['e']
+    else:
+        e = e_d
+        rheo['e'] = e
+
+    if 'kt' in rheo:
+        kt = rheo['kt']
+    else:
+        kt = tnsFac_d
+        rheo['kt'] = kt
+
+    if 'press0' in rheo:
+        press0 = rheo['press0']
+    else:
+        press0 = press0_d
+        rheo['press0'] = press0
+
+    k = eI / ( eII + 1e-20)
+
+    x = 0.5 * (k - 1 + kt)
+
+    alpha=0.99
+
+    x = np.minimum( x, alpha*kt )
+    x = np.maximum( x, -1+(1-alpha)*kt )
+
+    cyc = 0.5 * (1 - kt)
+
+    zeta = (x + cyc) / np.copysign(np.maximum(2*np.fabs(eI), 1e-20),eI) * press0
+
+    eta=  1 / e * np.sqrt( kt - x * ( x + 1-kt ) ) / (2 * eII + 1e-20) * press0
 
     press = cyc * press0
 
@@ -669,7 +783,7 @@ def plot_stress(data={}):
     for rheo_n in data['rheos']:
         plot_inv(data=data, rheo_n=rheo_n, ax=ax, arrows=True)
 
-    ax.legend()
+    ax.legend(markerscale=5)
 
     return None
 
@@ -722,7 +836,7 @@ def plot_FR(data={}):
     for rheo_n in data['rheos']:
         plot_sIFR(data=data, rheo_n=rheo_n, ax=ax)
 
-    ax.legend()
+    ax.legend(markerscale=2)
     ax.set_xlim([-1.5,1.5])
 
     return None
@@ -745,14 +859,26 @@ def plot_sIFR(data={}, rheo_n='', ax=None, carg=None, opt=None):
 
     if carg != None :
         # ax.plot(sigI.ravel(),(eI/eII).ravel(),'.', color=carg, ms=4, label=rheo_n)
-        ax.plot((eI/eII).ravel(),sigI.ravel(),'.', color=carg, ms=4, label=rheo_n, alpha=0.5)
+        ax.plot((eI/eII).ravel(),sigI.ravel(),'.', color=carg, ms=4, label=rheo_n, alpha=0.2)
     else:
         # p = ax.plot(sigI.ravel(),(eI/eII).ravel(),'.', ms=4, label=rheo_n)
-        p = ax.plot((eI/eII).ravel(),sigI.ravel(),'.', ms=4, label=rheo_n, alpha=0.5)
+        p = ax.plot((eI/eII).ravel(),sigI.ravel(),'.', ms=4, label=rheo_n, alpha=0.2)
         carg = p[0].get_color()
+
+    # if data[rheo_n]['rheo_t'] == 'ell' :
+    #     e = data[rheo_n]['e']
+    #     efr = data[rheo_n]['efr']
+    #     if efr != e :
+    #         press = data[rheo_n]['press0']
+    #         fr = fr_th_ell(sigI, e, efr, press)
+    #         ax.plot(fr.ravel(), sigI.ravel(), 'xk', ms=6, label='th_nnfr_ell')
 
     return None
 
+
+def fr_th_ell(sI, e, efr, press):
+    fr = e * (sI+0.5) / (efr**2 * np.sqrt( -sI**2 - sI) )
+    return fr
 
 def plot_prAng(data={}):
 
@@ -767,7 +893,7 @@ def plot_prAng(data={}):
     for rheo_n in data['rheos']:
         plot_prAng_ori(data=data, rheo_n=rheo_n, ax=ax)
 
-    ax.legend()
+    ax.legend(markerscale=2)
 
     return None
 
@@ -796,10 +922,10 @@ def plot_prAng_ori(data={}, rheo_n='', ax=None, carg=None, opt=None):
 
     if carg != None :
         # ax.plot(sigI.ravel(),(eI/eII).ravel(),'.', color=carg, ms=4, label=rheo_n)
-        ax.plot(psi_st.ravel(),psi_sr.ravel(),'.', color=carg, ms=4, label=rheo_n, alpha=0.5)
+        ax.plot(psi_st.ravel(),psi_sr.ravel(),'.', color=carg, ms=4, label=rheo_n, alpha=0.2)
     else:
         # p = ax.plot(sigI.ravel(),(eI/eII).ravel(),'.', ms=4, label=rheo_n)
-        p = ax.plot(psi_st.ravel(),psi_sr.ravel(),'.', ms=4, label=rheo_n, alpha=0.5)
+        p = ax.plot(psi_st.ravel(),psi_sr.ravel(),'.', ms=4, label=rheo_n, alpha=0.2)
         carg = p[0].get_color()
 
     return None

@@ -477,7 +477,7 @@ def mceG(data={}, rheo={}, rheo_n = ''):
     print('Computing MC-E rheology defined with a G function ; name:',rheo_n)
 
     # load data
-    ep = data['eI']
+    eI = data['eI']
     eII = data['eII']
 
     if 'e' in rheo:
@@ -505,14 +505,23 @@ def mceG(data={}, rheo={}, rheo_n = ''):
         rheo['press0'] = press0
 
     # compute the viscosities
-    flow_rate = 4 * mu * e**2 / (eII + mu * e**2 * eI )
+    # flow_rate = 4 * mu * e**2 / (eII + mu * e**2 * eI )
+    flow_rate = np.abs(  mu * e**2 / ( 2 * (eII + mu * e**2 * eI ) ) )
 
-    zeta = flow_rate / 8.
+    zeta = press0 * flow_rate
+
+    # eta = press0 * flow_rate / ( 2. * e**2 )
+    eta = zeta / e**2
+
+    # Conditions to be in the triangle
+    lim_zeta = press0 / ( 2 * np.abs(eI) + 1e-20)
+    zeta = np.minimum(zeta,lim_zeta)
+
+    lim_eta = mu * press0 / ( eII + 1e-20)
+    eta = np.minimum(eta,lim_eta)
 
     # press = (press0 * (1.-SEAICEpressReplFac) + SEAICEpressReplFac * 2 * zeta * np.fabs(ep)/(1.+kt))*(1.-kt)
     press = 0.5 * press0 * ( 1. - kt )
-
-    eta = flow_rate / ( 8. * e**2 )
 
     ### save in the dictionary
     data[rheo_n] = rheo
@@ -963,7 +972,6 @@ def muID(data={}, rheo={}, rheo_n = ''):
     if db: pr_var_stats(eta, 'eta')
 
     zeta = press / (2 * eII+ 1e-20) * (muI + 2 * mubI)
-    # zeta = 0
     if db: pr_var_stats(zeta, 'zeta')
 
     ### save in the dictionary
@@ -1041,8 +1049,11 @@ def comp_princ_stress(data={}, rheo_n=''):
     sigTmp=np.sqrt(np.abs(sigm**2+4*sig12*sig21))
     # sigTmp=np.sqrt(sigm**2+4*sig12*sig21)
 
-    data[rheo_n]['sig1']=0.5*(sigp+sigTmp)/press0
-    data[rheo_n]['sig2']=0.5*(sigp-sigTmp)/press0
+    data[rheo_n]['sig1']=0.5*(sigp+sigTmp)
+    data[rheo_n]['sig2']=0.5*(sigp-sigTmp)
+
+    data[rheo_n]['sig1n']=0.5*(sigp+sigTmp)/press0
+    data[rheo_n]['sig2n']=0.5*(sigp-sigTmp)/press0
 
     return None
 
@@ -1055,6 +1066,12 @@ def comp_str_inva(data={}, rheo_n='', plot=False):
 
     data[rheo_n]['sigI'] = 0.5*(sig1+sig2)
     data[rheo_n]['sigII'] = 0.5*(sig1-sig2)
+
+    sig1n = data[rheo_n]['sig1n']
+    sig2n = data[rheo_n]['sig2n']
+
+    data[rheo_n]['sigIn'] = 0.5*(sig1n+sig2n)
+    data[rheo_n]['sigIIn'] = 0.5*(sig1n-sig2n)
 
     if plot :
         plt.figure('sigI')
@@ -1094,8 +1111,8 @@ def plot_stress(data={}):
     ax = fig1.gca()
     plt.grid()
     plt.axis('equal')
-    ax.set_ylabel('Sigma II')
-    ax.set_xlabel('Sigma I')
+    ax.set_ylabel('Sigma II (normalized)')
+    ax.set_xlabel('Sigma I (normalized)')
 
     for rheo_n in data['rheos']:
         plot_inv(data=data, rheo_n=rheo_n, ax=ax, arrows=True)
@@ -1110,8 +1127,8 @@ def plot_inv(data={}, rheo_n='', opt=None, arrows=False, ax=None, carg=None):
     Plotting the yield curve in invariant coordinate
     '''
 
-    sigI = data[rheo_n]['sigI']
-    sigII = data[rheo_n]['sigII']
+    sigI = data[rheo_n]['sigIn']
+    sigII = data[rheo_n]['sigIIn']
     eI = data['eI']
     eII = data['eII']
 
@@ -1139,6 +1156,23 @@ def plot_inv(data={}, rheo_n='', opt=None, arrows=False, ax=None, carg=None):
         elli=Ellipse(xy=((-f+t)/2.,0), width=(f+t)/e, height=(f+t), angle=-90,edgecolor='b', fc='None', lw=0.5)
         ax.add_patch(elli)
 
+    if data[rheo_n]['rheo_t'] in ['mceG','ell']:
+        if data[rheo_n]['rheo_t'] == 'mceG' : c = '-b'
+        if data[rheo_n]['rheo_t'] == 'ell'  :
+            if data[rheo_n]['e'] ==data[rheo_n]['efr']:
+                c = '-b'
+            else:
+                c = '-r'
+        qpfac=20
+        sI = np.array(sigI[::qpfac,::qpfac])
+        sII = np.array(sigII[::qpfac,::qpfac])
+        cx = -0.5 * np.ones(np.shape(sI))
+        cy = 0 * np.ones(np.shape(sI))
+        xs = np.stack((cx.flatten(),sI.flatten()),axis=1)
+        ys = np.stack((cy.flatten(),sII.flatten()),axis=1)
+        for i in range(len(xs)):
+            ax.plot(xs[i], ys[i], c, lw = 2, alpha=0.3)
+
     return None
 
 
@@ -1148,7 +1182,7 @@ def plot_FR(data={}):
     ax = fig1.gca()
     plt.grid()
     ax.set_xlabel('dilatancy angle delta=arctan(eI/eII) [$^\circ$]')
-    ax.set_ylabel('Sigma I')
+    ax.set_ylabel('Sigma I (normalized)')
 
     for rheo_n in data['rheos']:
         plot_sIFR(data=data, rheo_n=rheo_n, ax=ax)
@@ -1164,7 +1198,7 @@ def plot_sIFR(data={}, rheo_n='', ax=None, carg=None, opt=None):
     Plotting the the flow rule as function of sI
     '''
 
-    sigI = data[rheo_n]['sigI']
+    sigI = data[rheo_n]['sigIn']
     eI = data['eI']
     eII = data['eII']
 
@@ -1230,6 +1264,9 @@ def plot_prAng_ori(data={}, rheo_n='', ax=None, carg=None, opt=None):
 
     psi_st = 0.5 * np.arctan2(2*sig12,(sig11-sig22)) * 180/np.pi
     psi_sr = 0.5 * np.arctan2(2*e12,(e11-e22)) * 180/np.pi
+
+    # psi_st = 0.5 * np.arctan(2*sig12/(sig11-sig22)) * 180/np.pi
+    # psi_sr = 0.5 * np.arctan(2*e12/(e11-e22)) * 180/np.pi
 
     if ax==None :
         fig1=plt.figure()

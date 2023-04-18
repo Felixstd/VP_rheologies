@@ -129,6 +129,8 @@ def compute_visc(data={},rheos={}):
 
         if rheos[rheo_n]['rheo_t'] == 'ell' :
             ellip(data=data, rheo=rheos[rheo_n], rheo_n = rheo_n)
+        elif rheos[rheo_n]['rheo_t'] == 'ellt' :
+            ellip_test(data=data, rheo=rheos[rheo_n], rheo_n = rheo_n)
         elif rheos[rheo_n]['rheo_t'] == 'ell_rot' :
             ellip(data=data, rheo=rheos[rheo_n], rheo_n = rheo_n, rot=True)
         elif rheos[rheo_n]['rheo_t'] == 'mce' :
@@ -154,7 +156,7 @@ def ellip(data={}, rheo={}, rheo_n = '', rot=False):
     '''
     ELLIPTICAL YIELD CURVE
     '''
-    print('Computing Ellipse rheology')
+    print('Computing Ellipse rheology ; name:',rheo_n)
 
 
     # load data
@@ -238,11 +240,103 @@ def ellip(data={}, rheo={}, rheo_n = '', rot=False):
 
     return None
 
+def ellip_test(data={}, rheo={}, rheo_n = '', rot=False):
+    '''
+    ELLIPTICAL YIELD CURVE
+    '''
+    print('Computing Ellipse rheology test ; name:',rheo_n)
+
+
+    # load data
+    ep = data['ep']
+    em = data['em']
+    eI = data['eI']
+    eII = data['eII']
+    if rot :
+        e12 = data['e12']
+        e21 = data['e21']
+    else:
+        e12 = data['e12s']
+        e21 = data['e12s']
+
+    # load rheo parameters
+    if 'e' in rheo:
+        e = rheo['e']
+    else:
+        e = e_d
+        rheo['e'] = e
+
+    if 'efr' in rheo:
+        efr = rheo['efr']
+    elif e != 2:
+        efr = e
+        rheo['efr'] = efr
+    else:
+        efr = e_d
+        rheo['efr'] = efr
+
+    if 'kt' in rheo:
+        kt = rheo['kt']
+    else:
+        kt = tnsFac_d
+        rheo['kt'] = kt
+
+    if 'press0' in rheo:
+        press0 = rheo['press0']
+    else:
+        press0 = press0_d
+        rheo['press0'] = press0
+
+    recip_e2 = 1./(e*e)
+    recip_efr2 = 1./(efr*efr)
+    e2_recip_efr4 = e**2/(efr**4)
+
+    ### Computing Delta
+    # deltaCsq=ep*ep+recip_e2*(em*em+4.0*np.abs(e12*e21))
+    # deltaCsq=ep*ep+e2_recip_efr4*(np.abs(em*em+4.0*e12*e21))
+    deltaCsq = ep**2 + recip_efr2 * (em**2 + 4.0*e12**2)
+    # deltaCsq=ep*ep+recip_e2*(em*em+4.0*e12*e21)
+
+    deltaC = np.sqrt(deltaCsq)
+    ## with a sqrt function
+    if SEAICE_DELTA_SMOOTHREG :
+        deltaCreg = np.sqrt(deltaCsq + deltaMinSq)
+    ## with a sharp min function
+    else:
+        deltaCreg = np.sqrt(np.maximum(deltaCsq,deltaMinSq))
+
+    ### Computing Zeta
+    ## with a smooth tanh function
+    if SEAICE_ZETA_SMOOTHREG:
+        argTmp = np.exp(-1./(deltaCreg*SEAICE_zetaMaxFac))
+        zeta=ZMAX*(1.-argTmp)/(1.+argTmp)*(1.+kt)
+    ## with a sharp min function
+    else:
+        zeta=press0*(1.+kt)/(2.*deltaCreg)
+        zeta=np.minimum(zeta,ZMAX)
+    zeta=np.maximum(zeta,ZMIN)
+
+    ### Computing pressure pressure
+    press = 0.5*(press0*(1.-SEAICEpressReplFac)+2.*zeta*deltaC*SEAICEpressReplFac/(1.+kt))*(1.-kt)
+
+    ### Computing eta
+    sI = zeta * ep - press
+    eta = 1. / e * np.sqrt( kt*press0**2 -  sI * ( sI + press0*(1 - kt) ) ) / (2 * eII + 1e-20)
+
+
+    ### save in the dictionary
+    data[rheo_n] = rheo
+    data[rheo_n]['zeta'] = zeta
+    data[rheo_n]['eta'] = eta
+    data[rheo_n]['press'] = press
+
+    return None
+
 def mce(data={}, rheo={}, rheo_n = ''):
     '''
     MC-E rheology
     '''
-    print('Computing MC-E rheology')
+    print('Computing MC-E rheology ; name:',rheo_n)
 
 
     # load data
@@ -319,7 +413,53 @@ def mcs(data={}, rheo={}, rheo_n = ''):
     '''
     MC-S rheology
     '''
-    print('Computing MC-S rheology')
+    print('Computing MC-S rheology ; name:',rheo_n)
+
+    # load data
+    ep = data['ep']
+    em = data['em']
+    e12 = data['e12s']
+    eII = data['eII']
+
+    if 'kt' in rheo:
+        kt = rheo['kt']
+    else:
+        kt = tnsFac_d
+        rheo['kt'] = kt
+
+    if 'mu' in rheo:
+        mu = rheo['mu']
+    else:
+        mu = SEAICEmcMu_d
+        rheo['mu'] = mu
+
+    if 'press0' in rheo:
+        press0 = rheo['press0']
+    else:
+        press0 = press0_d
+        rheo['press0'] = press0
+
+    # compute the viscosities
+    zeta = np.minimum(press0*(1+kt)/(2.*deltaMin),press0*(1+kt)/(2.*np.fabs(ep)))
+
+    # press = (press0 * (1.-SEAICEpressReplFac) + SEAICEpressReplFac * 2 * zeta * np.fabs(ep)/(1.+kt))*(1.-kt)
+    press = 0.5 * press0 * ( 1. - kt )
+
+    eta = mu*(press-zeta*(ep)+kt*press0)/(2*np.maximum(deltaMin,eII))
+
+    ### save in the dictionary
+    data[rheo_n] = rheo
+    data[rheo_n]['zeta'] = zeta
+    data[rheo_n]['eta'] = eta
+    data[rheo_n]['press'] = press
+
+    return None
+
+def mce_G(data={}, rheo={}, rheo_n = ''):
+    '''
+    MC-S rheology
+    '''
+    print('Computing MC-S rheology ; name:',rheo_n)
 
     # load data
     ep = data['ep']
@@ -362,11 +502,12 @@ def mcs(data={}, rheo={}, rheo_n = ''):
     return None
 
 
+
 def mctd(data={}, rheo={}, rheo_n = ''):
     '''
     MC-TD rheology
     '''
-    print('Computing MC-TD rheology')
+    print('Computing MC-TD rheology ; name:',rheo_n)
 
 
     # load data
@@ -419,7 +560,7 @@ def mcpl(data={}, rheo={}, rheo_n = ''):
     '''
     MC-PL rheology
     '''
-    print('Computing MC-PL rheology')
+    print('Computing MC-PL rheology ; name:',rheo_n)
 
 
     # load data
@@ -474,7 +615,7 @@ def td(data={}, rheo={}, rheo_n = ''):
     '''
     TD rheology
     '''
-    print('Computing TD rheology')
+    print('Computing TD rheology ; name:',rheo_n)
 
     # load data
     eI = data['eI']
@@ -520,7 +661,7 @@ def pl(data={}, rheo={}, rheo_n = ''):
     '''
     PL rheology
     '''
-    print('Computing PL rheology')
+    print('Computing PL rheology ; name:',rheo_n)
 
     # load data
     eI = data['eI']
@@ -567,7 +708,7 @@ def etd(data={}, rheo={}, rheo_n = ''):
     '''
     E-TD rheology
     '''
-    print('Computing E-TD rheology')
+    print('Computing E-TD rheology ; name:',rheo_n)
 
     # load data
     eI = data['eI']
@@ -620,7 +761,7 @@ def epl(data={}, rheo={}, rheo_n = ''):
     '''
     E-PL rheology
     '''
-    print('Computing E-PL rheology')
+    print('Computing E-PL rheology ; name:',rheo_n)
 
     # load data
     eI = data['eI']
@@ -830,14 +971,14 @@ def plot_FR(data={}):
     fig1=plt.figure('flow rule')
     ax = fig1.gca()
     plt.grid()
-    ax.set_xlabel('epsI/epsII')
+    ax.set_xlabel('dilatancy angle delta=arctan(eI/eII) [$\circ$]')
     ax.set_ylabel('Sigma I')
 
     for rheo_n in data['rheos']:
         plot_sIFR(data=data, rheo_n=rheo_n, ax=ax)
 
     ax.legend(markerscale=2)
-    ax.set_xlim([-1.5,1.5])
+    ax.set_xlim([-90,90])
 
     return None
 
@@ -859,19 +1000,19 @@ def plot_sIFR(data={}, rheo_n='', ax=None, carg=None, opt=None):
 
     if carg != None :
         # ax.plot(sigI.ravel(),(eI/eII).ravel(),'.', color=carg, ms=4, label=rheo_n)
-        ax.plot((eI/eII).ravel(),sigI.ravel(),'.', color=carg, ms=4, label=rheo_n, alpha=0.2)
+        ax.plot(np.arctan((eI/eII).ravel())*180/np.pi,sigI.ravel(),'.', color=carg, ms=4, label=rheo_n, alpha=0.2)
     else:
         # p = ax.plot(sigI.ravel(),(eI/eII).ravel(),'.', ms=4, label=rheo_n)
-        p = ax.plot((eI/eII).ravel(),sigI.ravel(),'.', ms=4, label=rheo_n, alpha=0.2)
+        p = ax.plot(np.arctan((eI/eII).ravel())*180/np.pi,sigI.ravel(),'.', ms=4, label=rheo_n, alpha=0.2)
         carg = p[0].get_color()
 
-    # if data[rheo_n]['rheo_t'] == 'ell' :
-    #     e = data[rheo_n]['e']
-    #     efr = data[rheo_n]['efr']
-    #     if efr != e :
-    #         press = data[rheo_n]['press0']
-    #         fr = fr_th_ell(sigI, e, efr, press)
-    #         ax.plot(fr.ravel(), sigI.ravel(), 'xk', ms=6, label='th_nnfr_ell')
+    if data[rheo_n]['rheo_t'] == 'ell' :
+        e = data[rheo_n]['e']
+        efr = data[rheo_n]['efr']
+        if efr != e :
+            press = data[rheo_n]['press0']
+            fr = fr_th_ell(sigI, e, efr, press)
+            ax.plot(np.arctan(fr.ravel())*180/np.pi, sigI.ravel(), 'xk', ms=6, label='th_nnfr_ell', alpha=0.3)
 
     return None
 
@@ -912,7 +1053,7 @@ def plot_prAng_ori(data={}, rheo_n='', ax=None, carg=None, opt=None):
     e12 = data['e12']
 
     psi_st = 0.5 * np.arctan2(2*sig12,(sig11-sig22)) * 180/np.pi
-    psi_sr = 0.5 * np.arctan2(e12,(e11-e22)) * 180/np.pi
+    psi_sr = 0.5 * np.arctan2(2*e12,(e11-e22)) * 180/np.pi
 
     if ax==None :
         fig1=plt.figure()

@@ -14,13 +14,6 @@ plt.rc('font', family='sans')
 
 from VP_rheology_settings import *
 
-def TD(sI,p=1):
-    '''
-    Shape of the TD yield curve
-    - sII/P as function as sI/P
-    '''
-    return -(sI/p-a)*(1+sI/p)**q
-
 def create_data(random=True,i=1e-6,j=0,plot=False,sym=True,s=201):
     '''
     Creating fake random data
@@ -29,13 +22,22 @@ def create_data(random=True,i=1e-6,j=0,plot=False,sym=True,s=201):
     '''
     if random :
 
+        # change the seed to vary the results
         np.random.seed(42)
         u=np.random.random((s,s))*i+j
         np.random.seed(24)
         v=np.random.random((s,s))*i+j
 
+        #  For the mu(I) rheology
+        np.random.seed(4)
+        phi=np.random.random((s-1,s-1))
+        np.random.seed(2)
+        h=np.random.random((s-1,s-1))
+
+        # spatial grid spacing
         dxy=1000
 
+        # deformations
         dudx=(u[1:,1:]-u[:-1,1:])/dxy
         dvdx=(v[1:,1:]-v[:-1,1:])/dxy
         dudy=(u[1:,1:]-u[1:,:-1])/dxy
@@ -52,10 +54,14 @@ def create_data(random=True,i=1e-6,j=0,plot=False,sym=True,s=201):
 
     else:
         eg=np.mgrid[-i:i:200j,i:-i:200j]
-        e11=eg[1,:,:]#*0.0
-        e22=eg[0,:,:]#*-0.5
-        e12=(1.0*e11+1.0*e22)*0.0
+        e11 = eg[1,:,:]#*0.0
+        e22 = eg[0,:,:]#*-0.5
+        e12 = (1.0*e11+1.0*e22)*0.0
+        e21 = (1.0*e11+1.0*e22)*0.0
 
+        #  For the mu(I) rheology
+        phi = np.ones((200,200))
+        h = np.ones((200,200))
 
     if plot :
         plt.figure('e11')
@@ -81,7 +87,9 @@ def create_data(random=True,i=1e-6,j=0,plot=False,sym=True,s=201):
 
         plt.show()
 
-    return {'e11':e11, 'e22':e22, 'e12':e12, 'e21':e21}
+
+
+    return {'e11':e11, 'e22':e22, 'e12':e12, 'e21':e21, 'h':h, 'phi':phi}
 
 def comp_sim_sr(data):
     '''
@@ -103,6 +111,9 @@ def comp_sim_sr(data):
     ### Computing in stress invariant
     data['eI'] = 0.5*(data['e1']+data['e2'])
     data['eII'] = 0.5*(data['e1']-data['e2'])
+
+    data['eI'][data['eI']==0] = 1e-10
+    data['eII'][data['eII']==0] = 1e-10
 
     ### Computing deformations in principal stress
     data['eTmps'] = np.sqrt(data['em']**2+4*data['e12s']**2)
@@ -135,6 +146,8 @@ def compute_visc(data={},rheos={}):
             ellip(data=data, rheo=rheos[rheo_n], rheo_n = rheo_n, rot=True)
         elif rheos[rheo_n]['rheo_t'] == 'mce' :
             mce(data=data, rheo=rheos[rheo_n], rheo_n = rheo_n)
+        elif rheos[rheo_n]['rheo_t'] == 'mceG' :
+            mceG(data=data, rheo=rheos[rheo_n], rheo_n = rheo_n)
         elif rheos[rheo_n]['rheo_t'] == 'mcs' :
             mcs(data=data, rheo=rheos[rheo_n], rheo_n = rheo_n)
         elif rheos[rheo_n]['rheo_t'] == 'mcpl' :
@@ -149,6 +162,8 @@ def compute_visc(data={},rheos={}):
             epl(data=data, rheo=rheos[rheo_n], rheo_n = rheo_n)
         elif rheos[rheo_n]['rheo_t'] == 'etd' :
             etd(data=data, rheo=rheos[rheo_n], rheo_n = rheo_n)
+        elif rheos[rheo_n]['rheo_t'] == 'muID' :
+            muID(data=data, rheo=rheos[rheo_n], rheo_n = rheo_n)
 
     return None
 
@@ -455,17 +470,21 @@ def mcs(data={}, rheo={}, rheo_n = ''):
 
     return None
 
-def mce_G(data={}, rheo={}, rheo_n = ''):
+def mceG(data={}, rheo={}, rheo_n = ''):
     '''
-    MC-S rheology
+    MC-EG rheology
     '''
-    print('Computing MC-S rheology ; name:',rheo_n)
+    print('Computing MC-E rheology defined with a G function ; name:',rheo_n)
 
     # load data
-    ep = data['ep']
-    em = data['em']
-    e12 = data['e12s']
+    ep = data['eI']
     eII = data['eII']
+
+    if 'e' in rheo:
+        e = rheo['e']
+    else:
+        e = e_d
+        rheo['e'] = e
 
     if 'kt' in rheo:
         kt = rheo['kt']
@@ -486,12 +505,14 @@ def mce_G(data={}, rheo={}, rheo_n = ''):
         rheo['press0'] = press0
 
     # compute the viscosities
-    zeta = np.minimum(press0*(1+kt)/(2.*deltaMin),press0*(1+kt)/(2.*np.fabs(ep)))
+    flow_rate = 4 * mu * e**2 / (eII + mu * e**2 * eI )
+
+    zeta = flow_rate / 8.
 
     # press = (press0 * (1.-SEAICEpressReplFac) + SEAICEpressReplFac * 2 * zeta * np.fabs(ep)/(1.+kt))*(1.-kt)
     press = 0.5 * press0 * ( 1. - kt )
 
-    eta = mu*(press-zeta*(ep)+kt*press0)/(2*np.maximum(deltaMin,eII))
+    eta = flow_rate / ( 8. * e**2 )
 
     ### save in the dictionary
     data[rheo_n] = rheo
@@ -811,6 +832,148 @@ def epl(data={}, rheo={}, rheo_n = ''):
 
     return None
 
+def muID(data={}, rheo={}, rheo_n = ''):
+    '''
+    mu(I) rheological framework
+    Heyman, J., Delannay, R., Tabuteau, H., & Valance, A. (2017). Compressibility regularizes the mu(I)-rheology for dense granular flows. Journal of Fluid Mechanics, 830, 553–568. https://doi.org/10.1017/jfm.2017.612
+    Herman, A. (2022). Granular effects in sea ice rheology in the marginal ice zone. Philosophical Transactions of the Royal Society A: Mathematical, Physical and Engineering Sciences, 380(2235), 20210260. https://doi.org/10.1098/rsta.2021.0260
+    '''
+    print('Computing mu(I) rheology ; name:',rheo_n)
+
+    # load data
+    eI = data['eI']
+    eII = data['eII']
+    phi = data['phi']
+    h = data['h']
+
+    # load rheo parameters
+    if 'phi_0' in rheo:
+        phi_0 = rheo['phi_0']
+    else:
+        phi_0 = phi_0_d
+        rheo['phi_0'] = phi_0
+
+    if 'c_phi' in rheo:
+        c_phi = rheo['c_phi']
+    else:
+        c_phi = c_phi_d
+        rheo['c_phi'] = c_phi
+
+    if 'rho' in rheo:
+        rho = rheo['rho']
+    else:
+        rho = rho_d
+        rheo['rho'] = rho
+
+    if 'd_m' in rheo:
+        d_m = rheo['d_m']
+    else:
+        d_m = d_m_d
+        rheo['d_m'] = d_m
+
+    if 'mu_0' in rheo:
+        mu_0 = rheo['mu_0']
+    else:
+        mu_0 = mu_0_d
+        rheo['mu_0'] = mu_0
+
+    if 'mu_i' in rheo:
+        mu_i = rheo['mu_i']
+    else:
+        mu_i = mu_i_d
+        rheo['mu_i'] = mu_i
+
+    if 'mub_0' in rheo:
+        mub_0 = rheo['mub_0']
+    else:
+        mub_0 = mub_0_d
+        rheo['mub_0'] = mub_0
+
+    if 'mub_i' in rheo:
+        mub_i = rheo['mub_i']
+    else:
+        mub_i = mub_i_d
+        rheo['mub_i'] = mub_i
+
+    if 'I_0' in rheo:
+        I_0 = rheo['I_0']
+    else:
+        I_0 = I_0_d
+        rheo['I_0'] = I_0
+
+    if 'coh' in rheo:
+        coh = rheo['coh']
+    else:
+        coh = coh_d
+        rheo['coh'] = coh
+
+    if 'Pmax' in rheo:
+        Pmax = rheo['Pmax']
+    else:
+        Pmax = Pmax_d
+        rheo['Pmax'] = Pmax
+
+    if 'Cstar' in rheo:
+        Cstar = rheo['Cstar']
+    else:
+        Cstar = Cstar_d
+        rheo['Cstar'] = Cstar
+
+    # To force and constant phi
+    # phi_d = 1.0
+
+    # to print debug values
+    if 'db' in rheo:
+        db = rheo['db']
+    else:
+        db = False
+
+    press0 = Pmax * h * np.exp(-Cstar*(1-phi))
+    if db: pr_var_stats(press0, 'press0')
+
+    I = (phi_0 - phi)/c_phi
+    if db: pr_var_stats(I, 'I')
+
+    # H22
+    # alpha, beta are FSD parameters
+    # def p(d, alpha, beta):
+    #     return d**(-alpha) * np.exp(-d/beta)
+    # c1 = fc1(alpha, beta) # unknown?
+    # c2 = fc2(alpha, beta) # unknown?
+    # I = ( 1. / c2 * np.arctanh(1. / c1 * (phi_0 - phi) ) )**2
+    # def d_m(alpha, beta):
+    #     return 2 * beta * (3 - alpha)
+
+    muI = mu_0 + (mu_i-mu_0)/(I_0/I+1)
+    if db: pr_var_stats(muI, 'muI ')
+
+    mubI = mub_0 + (mub_i-mub_0)/(I_0/I+1)
+    # mubI = 0
+    if db: pr_var_stats(mubI, 'mubI ')
+
+    # press = np.minimum(rho*(d*eII/(phi-phi_0))**2*press0,Pmax)
+    press = rho*(d_m*eII/(phi-phi_0))**2 * press0
+    # press = Pmax
+    if db: pr_var_stats(press, 'press')
+
+    p_eff = press * ( 1 - mubI * eI/ (eII + 1e-20) )
+    if db: pr_var_stats(p_eff, 'p_eff')
+
+    eta = press / (2 * eII+ 1e-20) * muI
+    if db: pr_var_stats(eta, 'eta')
+
+    zeta = press / (2 * eII+ 1e-20) * (muI + 2 * mubI)
+    # zeta = 0
+    if db: pr_var_stats(zeta, 'zeta')
+
+    ### save in the dictionary
+    data[rheo_n] = rheo
+    data[rheo_n]['zeta'] = zeta
+    data[rheo_n]['eta'] = eta
+    data[rheo_n]['press'] = press
+    data[rheo_n]['press0'] = press0
+
+    return None
 
 ##########
 # STRESSES
@@ -908,6 +1071,19 @@ def comp_str_inva(data={}, rheo_n='', plot=False):
 
     return None
 
+#########
+# TESTING
+#########
+
+def compute_tests(data={}):
+
+    for rheo_n in data['rheos']:
+        for v in ['eta','zeta']:
+            if (data[rheo_n][v] <= 0 ).any():
+                print("WARNING: one (or more) viscosity", v, "is negative in ",rheo_n)
+
+    return None
+
 ##########
 # PLOTTING
 ##########
@@ -971,7 +1147,7 @@ def plot_FR(data={}):
     fig1=plt.figure('flow rule')
     ax = fig1.gca()
     plt.grid()
-    ax.set_xlabel('dilatancy angle delta=arctan(eI/eII) [$\circ$]')
+    ax.set_xlabel('dilatancy angle delta=arctan(eI/eII) [$^\circ$]')
     ax.set_ylabel('Sigma I')
 
     for rheo_n in data['rheos']:
@@ -1072,5 +1248,18 @@ def plot_prAng_ori(data={}, rheo_n='', ax=None, carg=None, opt=None):
     return None
 
 
+####################
+# OTHER RANDOM TOOLS
+####################
+
+def TD(sI,p=1):
+    '''
+    Shape of the TD yield curve
+    - sII/P as function as sI/P
+    '''
+    return -(sI/p-a)*(1+sI/p)**q
+
+def pr_var_stats(var, varname):
+    print(varname, ' mean: ', np.nanmean(var), ' std: ', np.nanstd(var), ' min: ', np.nanmin(var), ' max: ', np.nanmax(var))
 
 

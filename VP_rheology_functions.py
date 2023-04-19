@@ -1138,16 +1138,25 @@ def plot_inv(data={}, rheo_n='', opt=None, arrows=False, ax=None, carg=None):
         plt.grid()
         plt.axis('equal')
 
-    if carg != None :
-        ax.scatter(sigI, sigII, carg, label=rheo_n)
+    if 'plot_inv' in data[rheo_n]:
+        if data[rheo_n]['plot_inv'] :
+            fac = -1
+        else:
+            fac = 1
     else:
-        p = ax.plot(sigI.ravel(), sigII.ravel(), '.', ms=1, label=rheo_n)
+        fac = 1
+
+
+    if carg != None :
+        ax.scatter(sigI.ravel(), fac*sigII.ravel(), carg, label=rheo_n)
+    else:
+        p = ax.plot(sigI.ravel(), fac*sigII.ravel(), '.', ms=1, label=rheo_n)
         carg = p[0].get_color()
 
     if arrows :
         qpfac=20
-        eu=np.hypot(eI[::qpfac,::qpfac],eII[::qpfac,::qpfac])
-        ax.quiver(sigI[::qpfac,::qpfac],sigII[::qpfac,::qpfac],eI[::qpfac,::qpfac]/eu,eII[::qpfac,::qpfac]/eu, scale=10, color=carg)
+        eu=np.hypot(eI[::qpfac,::qpfac],fac*eII[::qpfac,::qpfac])
+        ax.quiver(sigI[::qpfac,::qpfac],fac*sigII[::qpfac,::qpfac],eI[::qpfac,::qpfac]/eu,fac*eII[::qpfac,::qpfac]/eu, scale=10, color=carg)
 
     if opt=='ellipse':
         t=tnsFac
@@ -1165,7 +1174,7 @@ def plot_inv(data={}, rheo_n='', opt=None, arrows=False, ax=None, carg=None):
                 c = '-r'
         qpfac=20
         sI = np.array(sigI[::qpfac,::qpfac])
-        sII = np.array(sigII[::qpfac,::qpfac])
+        sII = fac*np.array(sigII[::qpfac,::qpfac])
         cx = -0.5 * np.ones(np.shape(sI))
         cy = 0 * np.ones(np.shape(sI))
         xs = np.stack((cx.flatten(),sI.flatten()),axis=1)

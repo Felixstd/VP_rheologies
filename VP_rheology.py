@@ -31,21 +31,25 @@ data['rheos']=[]
 ######################
 
 # Examples of choice of rheologies
-# Ellipse 'name':{'rheo_t':'ell', 'e':2.0, 'kt':0.5},
-# Ellipse with rotation 'name':{'rheo_t':'ell_rot', 'e':2.0, 'kt':0.5},
-# 'e2r4t':{'rheo_t':'ellt', 'e':2.0, 'efr':4.0, 'kt':0.00},
-# 'e2r4':{'rheo_t':'ell', 'e':2.0, 'efr':4.0, 'kt':0.00},
-# 'mc.7s':{'rheo_t':'mcs', 'mu':0.7, 'kt':0.05},
-# 'mc.7e4':{'rheo_t':'mce', 'mu':0.7, 'kt':0.05, 'e':4.0},
-# 'mc.7eG4':{'rheo_t':'mceG', 'mu':0.7, 'kt':0.05, 'e':4.0},
-# 'td':{'rheo_t':'td', 'kt':0.05},
-# 'pl':{'rheo_t':'pl', 'kt':0.05},
-# 'mc7td':{'rheo_t':'mctd', 'mu':0.7, 'kt':0.05},
-# 'mc7pl':{'rheo_t':'mcpl', 'mu':0.7, 'kt':0.05},
-# 'e2td':{'rheo_t':'etd', 'kt':0.05, 'e':2.},
-# 'e2pl':{'rheo_t':'epl', 'kt':0.05, 'e':2.},
-# 'muID':{'rheo_t':'muID'},
+# NFR: normal flow rule
+# NNFR: non normal flow rule
+# MC: Mohr-Coulomb
+# Ell. : Elliptical/Ellipse
 
+# Ellipse NFR 'name':{'rheo_t':'ell', 'e':2.0, 'kt':0.5},
+# Ellipse NFR with rotation 'name':{'rheo_t':'ell_rot', 'e':2.0, 'kt':0.5},
+# Ellipse NNFR v2: 'e2r4t':{'rheo_t':'ellt', 'e':2.0, 'efr':4.0, 'kt':0.00},
+# Ellipse NNFR: 'e2r4':{'rheo_t':'ell', 'e':2.0, 'efr':4.0, 'kt':0.00},
+# MC yield curve shear only: 'mc.7s':{'rheo_t':'mcs', 'mu':0.7, 'kt':0.05},
+# MC yield curve Ell. plastic potential: 'mc.7e4':{'rheo_t':'mce', 'mu':0.7, 'kt':0.05, 'e':4.0},
+# MC yield curve Ell. plastic potential v2:'mc.7eG4':{'rheo_t':'mceG', 'mu':0.7, 'kt':0.05, 'e':4.0},
+# Teadrop yield curve NFR: 'td':{'rheo_t':'td', 'kt':0.05},
+# Parabolic lens yield curve NFR: 'pl':{'rheo_t':'pl', 'kt':0.05},
+# MC yield curve, TD plastic potential: 'mc7td':{'rheo_t':'mctd', 'mu':0.7, 'kt':0.05},
+# MC yield curve, PL plastic potential: 'mc7pl':{'rheo_t':'mcpl', 'mu':0.7, 'kt':0.05},
+# Ell. yield curve, TD plastic potential: 'e2td':{'rheo_t':'etd', 'kt':0.05, 'e':2.},
+# Ell. yield curve, PL plastic potential: 'e2pl':{'rheo_t':'epl', 'kt':0.05, 'e':2.},
+# mu(I) rheology with dilatation: 'muID':{'rheo_t':'muID'},
 
 rheo_to_viz = {
     'ell2':{'rheo_t':'ell', 'e':2.0, 'kt':0.0},

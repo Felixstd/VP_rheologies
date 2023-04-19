@@ -1,5 +1,5 @@
-# VP_rheologies
-Tool to test sea ice VP rheologies on fake data - variables linked to the MITgcm sea ice package 
+# VP rheologies
+Tool to test sea ice viscous-plastic (VP) rheologies on fake data - variables linked to the MITgcm sea ice package
 
 ## implemented rheologies
 - Ellipse NFR

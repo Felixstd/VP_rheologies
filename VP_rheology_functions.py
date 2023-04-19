@@ -506,7 +506,7 @@ def mceG(data={}, rheo={}, rheo_n = ''):
 
     # compute the viscosities
     # flow_rate = 4 * mu * e**2 / (eII + mu * e**2 * eI )
-    flow_rate = np.abs(  mu * e**2 / ( 2 * (eII + mu * e**2 * eI ) ) )
+    flow_rate = np.abs(  mu * e**2 / ( 4 * (eII + mu * e**2 * eI ) ) )
 
     zeta = press0 * flow_rate
 
@@ -514,10 +514,10 @@ def mceG(data={}, rheo={}, rheo_n = ''):
     eta = zeta / e**2
 
     # Conditions to be in the triangle
-    lim_zeta = press0 / ( 2 * np.abs(eI) + 1e-20)
+    lim_zeta = press0 / ( 4 * np.abs(eI) + 1e-20)
     zeta = np.minimum(zeta,lim_zeta)
 
-    lim_eta = mu * press0 / ( eII + 1e-20)
+    lim_eta = mu * press0 / ( 2*eII + 1e-20)
     eta = np.minimum(eta,lim_eta)
 
     # press = (press0 * (1.-SEAICEpressReplFac) + SEAICEpressReplFac * 2 * zeta * np.fabs(ep)/(1.+kt))*(1.-kt)
@@ -1168,10 +1168,10 @@ def plot_inv(data={}, rheo_n='', opt=None, arrows=False, ax=None, carg=None):
     if data[rheo_n]['rheo_t'] in ['mceG','ell']:
         if data[rheo_n]['rheo_t'] == 'mceG' : c = '-b'
         if data[rheo_n]['rheo_t'] == 'ell'  :
-            if data[rheo_n]['e'] ==data[rheo_n]['efr']:
-                c = '-b'
-            else:
+            if data[rheo_n]['e'] == data[rheo_n]['efr']:
                 c = '-r'
+            else:
+                c = '-b'
         qpfac=20
         sI = np.array(sigI[::qpfac,::qpfac])
         sII = fac*np.array(sigII[::qpfac,::qpfac])
@@ -1180,7 +1180,7 @@ def plot_inv(data={}, rheo_n='', opt=None, arrows=False, ax=None, carg=None):
         xs = np.stack((cx.flatten(),sI.flatten()),axis=1)
         ys = np.stack((cy.flatten(),sII.flatten()),axis=1)
         for i in range(len(xs)):
-            ax.plot(xs[i], ys[i], c, lw = 2, alpha=0.3)
+            ax.plot(xs[i], ys[i], c, lw = 1, alpha=0.3)
 
     return None
 
@@ -1197,7 +1197,7 @@ def plot_FR(data={}):
         plot_sIFR(data=data, rheo_n=rheo_n, ax=ax)
 
     ax.legend(markerscale=2)
-    ax.set_xlim([-90,90])
+    ax.set_ylim([-90,90])
 
     return None
 
@@ -1218,11 +1218,11 @@ def plot_sIFR(data={}, rheo_n='', ax=None, carg=None, opt=None):
         plt.axis('equal')
 
     if carg != None :
-        # ax.plot(sigI.ravel(),(eI/eII).ravel(),'.', color=carg, ms=4, label=rheo_n)
-        ax.plot(np.arctan((eI/eII).ravel())*180/np.pi,sigI.ravel(),'.', color=carg, ms=4, label=rheo_n, alpha=0.2)
+        ax.plot(sigI.ravel(),np.arctan((eI/eII).ravel())*180/np.pi,'.', color=carg, ms=4, label=rheo_n, alpha=0.2)
+        # ax.plot(np.arctan((eI/eII).ravel())*180/np.pi,sigI.ravel(),'.', color=carg, ms=4, label=rheo_n, alpha=0.2)
     else:
-        # p = ax.plot(sigI.ravel(),(eI/eII).ravel(),'.', ms=4, label=rheo_n)
-        p = ax.plot(np.arctan((eI/eII).ravel())*180/np.pi,sigI.ravel(),'.', ms=4, label=rheo_n, alpha=0.2)
+        p = ax.plot(sigI.ravel(),np.arctan((eI/eII).ravel())*180/np.pi,'.', ms=4, label=rheo_n, alpha=0.2)
+        # p = ax.plot(np.arctan((eI/eII).ravel())*180/np.pi,sigI.ravel(),'.', ms=4, label=rheo_n, alpha=0.2)
         carg = p[0].get_color()
 
     if data[rheo_n]['rheo_t'] == 'ell' :
@@ -1231,7 +1231,8 @@ def plot_sIFR(data={}, rheo_n='', ax=None, carg=None, opt=None):
         if efr != e :
             press = data[rheo_n]['press0']
             fr = fr_th_ell(sigI, e, efr, press)
-            ax.plot(np.arctan(fr.ravel())*180/np.pi, sigI.ravel(), 'xk', ms=6, label='th_nnfr_ell', alpha=0.3)
+            # ax.plot(np.arctan(fr.ravel())*180/np.pi, sigI.ravel(), 'xk', ms=6, label='th_nnfr_ell', alpha=0.3)
+            ax.plot(sigI.ravel(),np.arctan(fr.ravel())*180/np.pi, 'xk', ms=2, label='th_nnfr_ell', alpha=0.2)
 
     return None
 

@@ -505,7 +505,7 @@ def mceG(data={}, rheo={}, rheo_n = ''):
         rheo['press0'] = press0
 
     # compute the viscosities
-    # flow_rate = 4 * mu * e**2 / (eII + mu * e**2 * eI )
+    # flow_rate = mu * e**2 / (4 * (eII + mu * e**2 * eI ))
     flow_rate = np.abs(  mu * e**2 / ( 4 * (eII + mu * e**2 * eI ) ) )
 
     zeta = press0 * flow_rate
@@ -514,11 +514,11 @@ def mceG(data={}, rheo={}, rheo_n = ''):
     eta = zeta / e**2
 
     # Conditions to be in the triangle
-    lim_zeta = press0 / ( 4 * np.abs(eI) + 1e-20)
-    zeta = np.minimum(zeta,lim_zeta)
+    # lim_zeta = press0 / ( 4 * np.abs(eI) + 1e-20)
+    # zeta = np.minimum(zeta,lim_zeta)
 
-    lim_eta = mu * press0 / ( 2*eII + 1e-20)
-    eta = np.minimum(eta,lim_eta)
+    # lim_eta = mu * press0 / ( 2*eII + 1e-20)
+    # eta = np.minimum(eta,lim_eta)
 
     # press = (press0 * (1.-SEAICEpressReplFac) + SEAICEpressReplFac * 2 * zeta * np.fabs(ep)/(1.+kt))*(1.-kt)
     press = 0.5 * press0 * ( 1. - kt )
@@ -1175,7 +1175,8 @@ def plot_inv(data={}, rheo_n='', opt=None, arrows=False, ax=None, carg=None):
         qpfac=20
         sI = np.array(sigI[::qpfac,::qpfac])
         sII = fac*np.array(sigII[::qpfac,::qpfac])
-        cx = -0.5 * np.ones(np.shape(sI))
+        kt = data[rheo_n]['kt']
+        cx = -0.5 * (1 - kt) * np.ones(np.shape(sI))
         cy = 0 * np.ones(np.shape(sI))
         xs = np.stack((cx.flatten(),sI.flatten()),axis=1)
         ys = np.stack((cy.flatten(),sII.flatten()),axis=1)
@@ -1230,15 +1231,16 @@ def plot_sIFR(data={}, rheo_n='', ax=None, carg=None, opt=None):
         efr = data[rheo_n]['efr']
         if efr != e :
             press = data[rheo_n]['press0']
-            fr = fr_th_ell(sigI, e, efr, press)
+            kt = data[rheo_n]['kt']
+            fr = fr_th_ell(sigI, e, efr, press, kt)
             # ax.plot(np.arctan(fr.ravel())*180/np.pi, sigI.ravel(), 'xk', ms=6, label='th_nnfr_ell', alpha=0.3)
             ax.plot(sigI.ravel(),np.arctan(fr.ravel())*180/np.pi, 'xk', ms=2, label='th_nnfr_ell', alpha=0.2)
 
     return None
 
 
-def fr_th_ell(sI, e, efr, press):
-    fr = e * (sI+0.5) / (efr**2 * np.sqrt( -sI**2 - sI) )
+def fr_th_ell(sI, e, efr, press, kt):
+    fr = e * (sI + 0.5 * (1 - kt)) / (efr**2 * np.sqrt(kt - sI * (sI + 1 - kt) ) )
     return fr
 
 def plot_prAng(data={}):
@@ -1247,7 +1249,7 @@ def plot_prAng(data={}):
     fig1=plt.figure('principal axes orientation')
     ax = fig1.gca()
     plt.grid()
-    plt.axis('equal')
+    # plt.axis('equal')
     ax.set_xlabel('principal stress orientation')
     ax.set_ylabel('principal strain rate orientation')
 
@@ -1264,7 +1266,7 @@ def plot_prAng_ori(data={}, rheo_n='', ax=None, carg=None, opt=None):
     Plotting the the flow rule as function of sI
     '''
 
-    sig11 = data[rheo_n]['sig12']
+    sig11 = data[rheo_n]['sig11']
     sig22 = data[rheo_n]['sig22']
     sig12 = data[rheo_n]['sig12']
 
@@ -1285,15 +1287,14 @@ def plot_prAng_ori(data={}, rheo_n='', ax=None, carg=None, opt=None):
         plt.axis('equal')
 
     if carg != None :
-        # ax.plot(sigI.ravel(),(eI/eII).ravel(),'.', color=carg, ms=4, label=rheo_n)
-        ax.plot(psi_st.ravel(),psi_sr.ravel(),'.', color=carg, ms=4, label=rheo_n, alpha=0.2)
+        ax.plot(psi_st.ravel(),psi_sr.ravel()-psi_st.ravel(),'.', color=carg, ms=4, label=rheo_n, alpha=0.2)
+        # ax.plot(psi_st.ravel(),psi_sr.ravel(),'.', color=carg, ms=4, label=rheo_n, alpha=0.2)
     else:
-        # p = ax.plot(sigI.ravel(),(eI/eII).ravel(),'.', ms=4, label=rheo_n)
-        p = ax.plot(psi_st.ravel(),psi_sr.ravel(),'.', ms=4, label=rheo_n, alpha=0.2)
+        p = ax.plot(psi_st.ravel(),psi_sr.ravel()-psi_st.ravel(),'.', ms=4, label=rheo_n, alpha=0.2)
+        # p = ax.plot(psi_st.ravel(),psi_sr.ravel(),'.', ms=4, label=rheo_n, alpha=0.2)
         carg = p[0].get_color()
 
     return None
-
 
 ####################
 # OTHER RANDOM TOOLS

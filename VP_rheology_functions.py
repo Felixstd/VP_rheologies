@@ -8,6 +8,9 @@ import copy
 from matplotlib.colors import SymLogNorm
 from math import copysign
 
+# import smoothmin functions
+from smooth_min import *
+
 # Using LaTeX in figures
 plt.rc('text', usetex=True)
 plt.rc('font', family='sans')
@@ -385,6 +388,12 @@ def mce(data={}, rheo={}, rheo_n = ''):
         press0 = press0_d
         rheo['press0'] = press0
 
+    if 'mu_c' in rheo:
+        mu_c = rheo['mu_c']
+    else:
+        mu_c = mu_c_d
+        rheo['mu_c'] = mu_c
+
     recip_e2 = 1/e**2
 
     # compute delta
@@ -413,7 +422,11 @@ def mce(data={}, rheo={}, rheo_n = ''):
     press = 0.5*(press0*(1.-SEAICEpressReplFac)+2.*zeta*deltaC*SEAICEpressReplFac/(1.+kt))*(1.-kt)
 
     ### Computing eta
-    eta = mu*(press-zeta*(ep)+kt*press0)/(2*np.maximum(deltaMin,eII))
+    eta_mc = mu*(press-zeta*(ep)+kt*press0)/(2*np.maximum(deltaMin,eII))
+
+    eta_c = mu_c*(zeta*(ep)-press+press0)/(2*np.maximum(deltaMin,eII))
+
+    eta = np.minimum(eta_mc, eta_c)
 
     ### save in the dictionary
     data[rheo_n] = rheo
@@ -550,6 +563,12 @@ def mctd(data={}, rheo={}, rheo_n = ''):
         mu = SEAICEmcMu_d
         rheo['mu'] = mu
 
+    if 'mu_c' in rheo:
+        mu_c = rheo['mu_c']
+    else:
+        mu_c = mu_c_d
+        rheo['mu_c'] = mu_c
+
     if 'kt' in rheo:
         kt = rheo['kt']
     else:
@@ -563,19 +582,25 @@ def mctd(data={}, rheo={}, rheo_n = ''):
         rheo['press0'] = press0
 
     k = eI / ( eII + 1e-20)
-    x = (-(6.*(1.+kt)-2*k*k)+2.*k*np.sqrt(k*k+3. * (1.+kt)))/9. + kt
+    # x = (-(6.*(1.+kt)-2*k*k)+2.*k*np.sqrt(k*k+3. * (1.+kt)))/9. + kt
 
     alpha = 0.95
 
-    x = np.minimum( x, alpha*kt )
+    # x = np.minimum( x, alpha*kt )
 
     cyc = (2. - kt)/3.
 
-    zeta = ( x + cyc ) / np.copysign(np.maximum(2*np.fabs(eI), 1e-20),eI) * press0
-
-    eta = - press0 * mu * ( x - kt ) / ( 2*eII + 1e-20 )
+    # zeta = ( x + cyc ) / np.copysign(np.maximum(2*np.fabs(eI), 1e-20),eI) * press0
+    zeta = 2 * press0 / (9 * eII + 1e-20) * (k + np.sqrt(k**2 + 3 * (1 - kt) ) )
 
     press = cyc * press0
+
+    # eta_mc = - press0 * mu * ( x - kt ) / ( 2*eII + 1e-20 )
+    eta_mc = mu * (press - zeta * eI - press0 * kt) / ( 2 * eII + 1e-20 )
+
+    # compressive cap
+    eta_c = mu_c * (zeta * eI - press + press0) / (2 * np.maximum(1e-20,eII))
+    eta = np.minimum(eta_mc, eta_c)
 
     ### save in the dictionary
     data[rheo_n] = rheo
@@ -615,6 +640,12 @@ def mcpl(data={}, rheo={}, rheo_n = ''):
         mu = SEAICEmcMu_d
         rheo['mu'] = mu
 
+    if 'mu_c' in rheo:
+        mu_c = rheo['mu_c']
+    else:
+        mu_c = mu_c_d
+        rheo['mu_c'] = mu_c
+
 
     k = eI / (eII + 1e-20) # 0
 
@@ -628,9 +659,13 @@ def mcpl(data={}, rheo={}, rheo_n = ''):
 
     zeta = ( x + cyc ) / np.copysign(np.maximum(2*np.fabs(eI), deltaMinSq),eI) * press0
 
-    eta = - press0 * mu * ( x - kt ) / ( 2*eII + 1e-20 )
+    eta_mc = - press0 * mu * ( x - kt ) / ( 2*eII + 1e-20 )
 
     press = cyc * press0
+
+    eta_c = mu_c * (2 * zeta * eI - press + press0) / (2 * np.maximum(deltaMin,eII))
+
+    eta = np.minimum(eta_mc, eta_c)
 
     ### save in the dictionary
     data[rheo_n] = rheo

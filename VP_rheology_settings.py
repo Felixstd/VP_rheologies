@@ -39,6 +39,9 @@ SEAICE_etaMaxFac=2.5e10
 ## For the MC truncating
 SEAICE_TMC_SMOOTHMIN=False
 
+## For the cap for MCE, MCTD and MCPL
+mu_c_d = 2.0
+
 ## Default Values for mu(I) rheologies
 ## H22 refers to Hermam (2022) DOI:10.1098/rsta.2021.0260
 

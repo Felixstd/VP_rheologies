@@ -525,33 +525,47 @@ def mceG(data={}, rheo={}, rheo_n = ''):
         mu_c = mu_c_d
         rheo['mu_c'] = mu_c
 
-    # compute the viscosities
-    # flow_rate = mu * e**2 / (4 * (eII + mu * e**2 * eI ))
-    flow_rate = np.abs( (1 + kt) * mu * e**2 / ( 4 * (eII + mu * e**2 * eI ) ) )
-
+    # compute the MC zeta
+    delta = eII + mu * e**2 * eI
+    flow_rate = np.abs((1 + kt) * mu * e**2 / ( 2 * delta ) )
     zeta_mc = press0 * flow_rate
 
-    # eta = press0 * flow_rate / ( 2. * e**2 )
+    # compute the cap zeta
+    delta_c = mu_c * e**2 * eI - eII
+    flow_rate_c = np.abs(  (1 + kt) * mu_c * e**2 / ( 2 * delta_c ) )
+    zeta_c = press0 * flow_rate_c
+
+    # Apply viscous capping
+    zeta_mc = np.minimum(zeta_mc,ZMAX)
+    zeta_c = np.minimum(zeta_c,ZMAX)
+
+    press_mc = 0.5 * (1 - kt) * press0 * (1 - SEAICEpressReplFac) + SEAICEpressReplFac * zeta_mc / flow_rate
+    press_c =  0.5 * (1 - kt) * press0 * (1 - SEAICEpressReplFac) + SEAICEpressReplFac * zeta_c / flow_rate_c
+
+    # compute MC and cap eta
+    eta_c = zeta_c / e**2
     eta_mc = zeta_mc / e**2
 
-    ### compressive capping eta
-    flow_rate_c = np.abs(  (1 + kt) * mu_c * e**2 / ( 4 * (mu_c * e**2 * eI - eII) ) )
-    zeta_c = press0 * flow_rate_c
-    eta_c = zeta_c / e**2
+    # Choose between MC limbs and cap
+    # zeta = np.minimum(zeta_mc, zeta_c)
+    # eta = np.minimum(eta_mc, eta_c)
+    # press = np.minimum(press_mc, press_c)
 
-    zeta = 2 * np.minimum(zeta_mc, zeta_c)
-    # zeta = zeta_mc
-    eta = 2 * np.minimum(eta_mc, eta_c)
+    # Choose between MC limbs and cap
+    zeta = np.where(eta_mc<eta_c, zeta_mc, zeta_c)
+    press = np.where(eta_mc<eta_c, press_mc, press_c)
+    eta = np.where(eta_mc<eta_c, eta_mc, eta_c)
 
-    # Conditions to be in the triangle
+    ## When no cap is used, the Conditions to be in the triangle
     # lim_zeta = press0 / ( 4 * np.abs(eI) + 1e-20)
     # zeta = np.minimum(zeta,lim_zeta)
-
     # lim_eta = mu * press0 / ( 2*eII + 1e-20)
     # eta = np.minimum(eta,lim_eta)
 
-    # press = (press0 * (1.-SEAICEpressReplFac) + SEAICEpressReplFac * 2 * zeta * np.fabs(ep)/(1.+kt))*(1.-kt)
-    press = 0.5 * press0 * ( 1. - kt )
+
+
+    # press = zeta * delta_c * (1. - kt) / ((1.+kt) * e**2 * mu_c)
+    # press = 0.5 * press0 * ( 1. - kt )
 
     ### save in the dictionary
     data[rheo_n] = rheo
@@ -1169,6 +1183,7 @@ def plot_stress(data={}):
         plot_inv(data=data, rheo_n=rheo_n, ax=ax, arrows=True)
 
     ax.legend(markerscale=5)
+    ax.set_xlim([-1.2,0.2])
 
     return None
 

@@ -424,8 +424,8 @@ def mce(data={}, rheo={}, rheo_n = ''):
     ### Computing eta
     eta_mc = mu*(press-zeta*eI+kt*press0)/(np.maximum(deltaMin,eII))
 
+    ### compressive capping eta
     eta_c = mu_c*(zeta*eI-press+press0)/(np.maximum(deltaMin,eII))
-
     eta = np.minimum(eta_mc, eta_c)
 
     ### save in the dictionary
@@ -444,7 +444,7 @@ def mcs(data={}, rheo={}, rheo_n = ''):
     print('Computing MC-S rheology ; name:',rheo_n)
 
     # load data
-    ep = data['ep']
+    eI = data['eI']
     em = data['em']
     e12 = data['e12s']
     eII = data['eII']
@@ -467,13 +467,15 @@ def mcs(data={}, rheo={}, rheo_n = ''):
         press0 = press0_d
         rheo['press0'] = press0
 
+    zetaMax = press0*(1+kt)/(2.*deltaMin)
+
     # compute the viscosities
-    zeta = np.minimum(press0*(1+kt)/(2.*deltaMin),press0*(1+kt)/(2.*np.fabs(ep)))
+    zeta = np.minimum(zetaMax,press0*(1+kt)/(np.fabs(2*eI+1e-20)))
 
     # press = (press0 * (1.-SEAICEpressReplFac) + SEAICEpressReplFac * 2 * zeta * np.fabs(ep)/(1.+kt))*(1.-kt)
     press = 0.5 * press0 * ( 1. - kt )
 
-    eta = mu*(press-zeta*(ep)+kt*press0)/(2*np.maximum(deltaMin,eII))
+    eta = np.minimum(mu*(press-zeta*eI+kt*press0)/(np.maximum(1e-20,eII)),zetaMax)
 
     ### save in the dictionary
     data[rheo_n] = rheo
@@ -517,14 +519,29 @@ def mceG(data={}, rheo={}, rheo_n = ''):
         press0 = press0_d
         rheo['press0'] = press0
 
+    if 'mu_c' in rheo:
+        mu_c = rheo['mu_c']
+    else:
+        mu_c = mu_c_d
+        rheo['mu_c'] = mu_c
+
     # compute the viscosities
     # flow_rate = mu * e**2 / (4 * (eII + mu * e**2 * eI ))
-    flow_rate = np.abs(  mu * e**2 / ( 4 * (eII + mu * e**2 * eI ) ) )
+    flow_rate = np.abs( (1 + kt) * mu * e**2 / ( 4 * (eII + mu * e**2 * eI ) ) )
 
-    zeta = press0 * flow_rate
+    zeta_mc = press0 * flow_rate
 
     # eta = press0 * flow_rate / ( 2. * e**2 )
-    eta = zeta / e**2
+    eta_mc = zeta_mc / e**2
+
+    ### compressive capping eta
+    flow_rate_c = np.abs(  (1 + kt) * mu_c * e**2 / ( 4 * (mu_c * e**2 * eI - eII) ) )
+    zeta_c = press0 * flow_rate_c
+    eta_c = zeta_c / e**2
+
+    zeta = 2 * np.minimum(zeta_mc, zeta_c)
+    # zeta = zeta_mc
+    eta = 2 * np.minimum(eta_mc, eta_c)
 
     # Conditions to be in the triangle
     # lim_zeta = press0 / ( 4 * np.abs(eI) + 1e-20)
@@ -706,9 +723,9 @@ def td(data={}, rheo={}, rheo_n = ''):
 
     cyc = (2. - kt)/3.
 
-    zeta = ( x + cyc ) / np.copysign(np.maximum(2*np.fabs(eI), deltaMinSq),eI) * press0
+    zeta = ( x + cyc ) / np.copysign(np.maximum(np.fabs(eI), deltaMinSq),eI) * press0
 
-    eta = - ( x - kt ) * np.sqrt( 1. + x ) * press0 / (2*eII + 1e-20)
+    eta = - ( x - kt ) * np.sqrt( 1. + x ) * press0 / (eII + 1e-20)
 
     press = cyc * press0
 
@@ -754,9 +771,9 @@ def pl(data={}, rheo={}, rheo_n = ''):
 
     cyc = 0.5 * (1 - kt)
 
-    zeta = ( x + cyc ) / np.copysign(np.maximum(2*np.fabs(eI), 1e-20),eI) * press0
+    zeta = ( x + cyc ) / np.copysign(np.maximum(np.fabs(eI), 1e-20),eI) * press0
 
-    eta = - ( x - kt ) * ( 1. + x ) * press0 / (2*eII + 1e-20)
+    eta = - ( x - kt ) * ( 1. + x ) * press0 / (eII + 1e-20)
 
     press = cyc * press0
 
@@ -807,9 +824,9 @@ def etd(data={}, rheo={}, rheo_n = ''):
 
     cyc = (2. - kt) / 3.
 
-    zeta = (x + cyc) / np.copysign(np.maximum(2*np.fabs(eI), 1e-20),eI) * press0
+    zeta = (x + cyc) / np.copysign(np.maximum(np.fabs(eI), 1e-20),eI) * press0
 
-    eta = 1. / e * np.sqrt( kt - x * ( x + 1-kt ) ) / (2 * eII + 1e-20) * press0
+    eta = 1. / e * np.sqrt( kt - x * ( x + 1-kt ) ) / (eII + 1e-20) * press0
 
     press = cyc * press0
 
@@ -861,9 +878,9 @@ def epl(data={}, rheo={}, rheo_n = ''):
 
     cyc = 0.5 * (1 - kt)
 
-    zeta = (x + cyc) / np.copysign(np.maximum(2*np.fabs(eI), 1e-20),eI) * press0
+    zeta = (x + cyc) / np.copysign(np.maximum(np.fabs(eI), 1e-20),eI) * press0
 
-    eta=  1 / e * np.sqrt( kt - x * ( x + 1-kt ) ) / (2 * eII + 1e-20) * press0
+    eta=  1 / e * np.sqrt( kt - x * ( x + 1-kt ) ) / (eII + 1e-20) * press0
 
     press = cyc * press0
 
@@ -1188,7 +1205,7 @@ def plot_inv(data={}, rheo_n='', opt=None, arrows=False, ax=None, carg=None):
         carg = p[0].get_color()
 
     if arrows :
-        qpfac=20
+        qpfac=10
         eu=np.hypot(eI[::qpfac,::qpfac],fac*eII[::qpfac,::qpfac])
         ax.quiver(sigI[::qpfac,::qpfac],fac*sigII[::qpfac,::qpfac],eI[::qpfac,::qpfac]/eu,fac*eII[::qpfac,::qpfac]/eu, scale=10, color=carg)
 
@@ -1225,8 +1242,8 @@ def plot_FR(data={}):
     fig1=plt.figure('flow rule')
     ax = fig1.gca()
     plt.grid()
-    ax.set_xlabel('dilatancy angle delta=arctan(eI/eII) [$^\circ$]')
-    ax.set_ylabel('Sigma I (normalized)')
+    ax.set_ylabel('dilatancy angle delta=arctan(eI/eII) [$^\circ$]')
+    ax.set_xlabel('Sigma I (normalized)')
 
     for rheo_n in data['rheos']:
         plot_sIFR(data=data, rheo_n=rheo_n, ax=ax)

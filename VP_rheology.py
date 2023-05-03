@@ -64,7 +64,7 @@ rheo_to_viz = {
     # 'e2r1':{'rheo_t':'ell', 'e':2.0, 'efr':1.0, 'kt':kt},
     # 'mc.7s':{'rheo_t':'mcs', 'mu':0.7, 'kt':kt},
     'mc.7e2':{'rheo_t':'mce', 'mu':0.7, 'kt':kt, 'e':2.0, 'mu_c':4},
-    'mc.7eG2':{'rheo_t':'mceG', 'mu':0.7, 'kt':kt, 'e':2.0, 'mu_c':4},
+    # 'mc.7eG2':{'rheo_t':'mceG', 'mu':0.7, 'kt':kt, 'e':2.0, 'mu_c':4},
     # 'td':{'rheo_t':'td', 'kt':kt},
     # 'pl':{'rheo_t':'pl', 'kt':kt},
     # 'mc7td':{'rheo_t':'mctd', 'mu':0.7, 'kt':kt, 'mu_c':4},

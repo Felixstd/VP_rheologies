@@ -425,7 +425,7 @@ def mce(data={}, rheo={}, rheo_n = ''):
     eta_mc = mu*(press-zeta*eI+kt*press0)/(np.maximum(deltaMin,eII))
 
     ### compressive capping eta
-    eta_c = mu_c*(zeta*eI-press+press0)/(np.maximum(deltaMin,eII))
+    eta_c = 0.5*mu_c*press0*(1+kt)*(eI/deltaCreg + 1.)/(np.maximum(deltaMin,eII))
     eta = np.minimum(eta_mc, eta_c)
 
     ### save in the dictionary
@@ -1238,7 +1238,7 @@ def plot_inv(data={}, rheo_n='', opt=None, arrows=False, ax=None, carg=None):
                 c = '-r'
             else:
                 c = '-b'
-        qpfac=20
+        qpfac=10
         sI = np.array(sigI[::qpfac,::qpfac])
         sII = fac*np.array(sigII[::qpfac,::qpfac])
         kt = data[rheo_n]['kt']

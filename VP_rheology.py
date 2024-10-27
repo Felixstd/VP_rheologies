@@ -56,14 +56,14 @@ data['rheos']=[]
 kt = 0.10
 
 rheo_to_viz = {
-    # 'ell2':{'rheo_t':'ell', 'e':2.0, 'kt':kt},
+    'ell2':{'rheo_t':'ell', 'e':2.0, 'kt':kt},
     # 'ell2':{'rheo_t':'ell', 'e':1.0, 'kt':kt},
     # 'ell4':{'rheo_t':'ell', 'e':4.0, 'kt':kt, 'plot_inv':True},
     # 'e2r4t':{'rheo_t':'ellt', 'e':1.0, 'efr':2.0, 'kt':kt},
     # 'e2r4':{'rheo_t':'ell', 'e':2.0, 'efr':4.0, 'kt':kt},
     # 'e2r1':{'rheo_t':'ell', 'e':2.0, 'efr':1.0, 'kt':kt},
     # 'mc.7s':{'rheo_t':'mcs', 'mu':0.7, 'kt':kt},
-    'mc.7e2':{'rheo_t':'mce', 'mu':0.7, 'kt':kt, 'e':2.0, 'mu_c':4},
+    # 'mc.7e2':{'rheo_t':'mce', 'mu':0.7, 'kt':kt, 'e':2.0, 'mu_c':4},
     # 'mc.7eG2':{'rheo_t':'mceG', 'mu':0.7, 'kt':kt, 'e':2.0, 'mu_c':4},
     # 'td':{'rheo_t':'td', 'kt':kt},
     # 'pl':{'rheo_t':'pl', 'kt':kt},
@@ -71,7 +71,7 @@ rheo_to_viz = {
     # 'mc7pl':{'rheo_t':'mcpl', 'mu':0.7, 'kt':kt, 'mu_c':4},
     # 'e2td':{'rheo_t':'etd', 'kt':kt, 'e':2.},
     # 'e2pl':{'rheo_t':'epl', 'kt':kt, 'e':2.},
-    # 'muID':{'rheo_t':'muID', 'db':False},
+    'muID':{'rheo_t':'muID', 'db':True},
 }
 
 #######################

@@ -46,27 +46,34 @@ mu_c_d = 4.0
 ## H22 refers to Hermam (2022) DOI:10.1098/rsta.2021.0260
 
 # Maximal compaction
-phi_0_d = 1.1
+# phi_0_d = 1.1
+phi_0_d = 1
 
 # rate of drecrease of phi as function of I
-c_phi_d = 1e-2
+# c_phi_d = 1e-2
+c_phi_d = 1
 
 # intrinsec density of floes
 rho_d = 910
 
 # average size of floes
-d_m_d = 300
+# d_m_d = 300
+d_m_d = 1e3
 
 # mu(I) range for shear deformation
-mu_0_d = 0.13 # H22 0.13
-mu_i_d = 0.4 # H33 0.4
+mu_0_d = 0.1 # H22 0.13
+mu_i_d = 0.9 # H33 0.4
+
+# mu_0_d = 0.1 # H22 0.13
+# mu_i_d = 0.9 # H33 0.4
 
 # mu(I) range for dilatant deformatiom
-mub_0_d = 0.2
-mub_i_d = 0.2
+mub_0_d = 0.1
+mub_i_d = 1
 
 # I threshold
-I_0_d = 6.8e-3 # H22 6.8e-3
+# I_0_d = 6.8e-3 # H22 6.8e-3
+I_0_d = 1e-2 # H22 6.8e-3
 
 # cohesion (to add in equations)
 coh_d = 0
@@ -76,3 +83,5 @@ Cstar_d = 20
 
 # Constant for the computation of press0 as function of h
 Pmax_d = 2.75e4
+
+# Pmax_d = e4

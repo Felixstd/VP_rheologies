@@ -7,13 +7,16 @@ from mpl_toolkits.mplot3d import Axes3D
 import copy
 from matplotlib.colors import SymLogNorm
 from math import copysign
+import scienceplots
+
+plt.style.use('science')
 
 # import smoothmin functions
-from smooth_min import *
+# from smooth_min import *
 
 # Using LaTeX in figures
-plt.rc('text', usetex=True)
-plt.rc('font', family='sans')
+# plt.rc('text', usetex=True)
+# plt.rc('font', family='sans')
 
 from VP_rheology_settings import *
 
@@ -34,8 +37,13 @@ def create_data(random=True,i=1e-6,j=0,plot=False,sym=True,s=201):
         #  For the mu(I) rheology
         np.random.seed(4)
         phi=np.random.random((s-1,s-1))
+        
+        # phi = np.random.random((s-1, s-1))*0.2+ 0.8
+        print(phi)
         np.random.seed(2)
-        h=np.random.random((s-1,s-1))
+        # h=np.random.random((s-1,s-1))
+        h = np.ones_like(phi)
+        # h = phi
 
         # spatial grid spacing
         dxy=1000
@@ -919,6 +927,7 @@ def muID(data={}, rheo={}, rheo_n = ''):
     eII = data['eII']
     phi = data['phi']
     h = data['h']
+    volume_changes = 1
 
     # load rheo parameters
     if 'phi_0' in rheo:
@@ -1017,26 +1026,66 @@ def muID(data={}, rheo={}, rheo_n = ''):
     # I = ( 1. / c2 * np.arctanh(1. / c1 * (phi_0 - phi) ) )**2
     # def d_m(alpha, beta):
     #     return 2 * beta * (3 - alpha)
+    
+    I_switch = 0.001
+    alpha = 1.9
+    muI_switch = mu_0 + (mu_i-mu_0)/(I_0/I_switch+1)
+    A_minus = I_switch * np.exp(alpha / muI_switch ** 2)
+    
+    
+    muI = np.zeros_like(I)
+    print(np.shape(muI))
+    
+    
+    # muI[I < I_switch] = np.sqrt(alpha / np.log(A_minus/I[I < I_switch]))
+    
+    # muI[I > I_switch] = mu_0 + (mu_i-mu_0)/(I_0/I[I > I_switch]+1)
+    
 
     muI = mu_0 + (mu_i-mu_0)/(I_0/I+1)
+    mubI = mub_0_d
+    
     if db: pr_var_stats(muI, 'muI ')
 
-    mubI = mub_0 + (mub_i-mub_0)/(I_0/I+1)
-    # mubI = 0
+    # mubI = mub_0 + (mub_i-mub_0)/(I_0/I+1)
+    
+    # mubI = 1/(2*muI)
+
     if db: pr_var_stats(mubI, 'mubI ')
 
     # press = np.minimum(rho*(d*eII/(phi-phi_0))**2*press0,Pmax)
-    press = rho*(d_m*eII/(phi-phi_0))**2 * press0
-    # press = Pmax
+    # press = rho*(d_m*eII/(phi-phi_0))**2 * press0
+    press = h*rho*(d_m*eII/(phi-phi_0+ 1e-20))**2
+    press = Pmax*np.tanh(press/Pmax)
+    
+    
     if db: pr_var_stats(press, 'press')
 
     p_eff = press * ( 1 - mubI * eI/ (eII + 1e-20) )
+    
+    
+    if volume_changes:
+        eta = press * (1 - mubI * eI/eII)**2
+        
+        zeta = -2*muI*press / eII
+        press = 0
+        
+    else:
+        eta = press / (2 * eII+ 1e-20) * muI
+        zeta = press / (2 * eII+ 1e-20) * (muI + 2 * mubI)
+    # 
+
+    # press=p_eff
     if db: pr_var_stats(p_eff, 'p_eff')
 
-    eta = press / (2 * eII+ 1e-20) * muI
+    eta = np.minimum(eta, 1e12)
+    zeta_max =  2e8*press
+    zeta = zeta_max * np.tanh(zeta / zeta_max)
+    
     if db: pr_var_stats(eta, 'eta')
 
-    zeta = press / (2 * eII+ 1e-20) * (muI + 2 * mubI)
+   
+    
     if db: pr_var_stats(zeta, 'zeta')
 
     ### save in the dictionary
@@ -1045,6 +1094,7 @@ def muID(data={}, rheo={}, rheo_n = ''):
     data[rheo_n]['eta'] = eta
     data[rheo_n]['press'] = press
     data[rheo_n]['press0'] = press0
+    # data[rheo_n]['press0'] = press0
 
     return None
 
@@ -1175,15 +1225,16 @@ def plot_stress(data={}):
     fig1=plt.figure('stress states')
     ax = fig1.gca()
     plt.grid()
-    plt.axis('equal')
-    ax.set_ylabel('Sigma II (normalized)')
-    ax.set_xlabel('Sigma I (normalized)')
+    # plt.axis('equal')
+    ax.set_ylabel(r'$\sigma_{II}$ (normalized)')
+    ax.set_xlabel('$\sigma_{I}$ (normalized)')
 
     for rheo_n in data['rheos']:
-        plot_inv(data=data, rheo_n=rheo_n, ax=ax, arrows=True)
+        plot_inv(data=data, rheo_n=rheo_n, ax=ax, arrows=False)
 
     ax.legend(markerscale=5)
-    ax.set_xlim([-1.2,0.2])
+    # ax.set_xlim([-1.2,0.2])
+    plt.savefig('stress.png')
 
     return None
 
@@ -1248,6 +1299,7 @@ def plot_inv(data={}, rheo_n='', opt=None, arrows=False, ax=None, carg=None):
         ys = np.stack((cy.flatten(),sII.flatten()),axis=1)
         for i in range(len(xs)):
             ax.plot(xs[i], ys[i], c, lw = 1, alpha=0.3)
+    # plt.savefig('invariant.png')
 
     return None
 
@@ -1257,14 +1309,15 @@ def plot_FR(data={}):
     fig1=plt.figure('flow rule')
     ax = fig1.gca()
     plt.grid()
-    ax.set_ylabel('dilatancy angle delta=arctan(eI/eII) [$^\circ$]')
-    ax.set_xlabel('Sigma I (normalized)')
+    ax.set_ylabel(r'$\delta=\text{arctan}(e_I/e_{II})$ [$^\circ$]')
+    ax.set_xlabel(r'$\sigma_{I}$ (normalized)')
 
     for rheo_n in data['rheos']:
         plot_sIFR(data=data, rheo_n=rheo_n, ax=ax)
 
     ax.legend(markerscale=2)
     ax.set_ylim([-90,90])
+    plt.savefig('flowrule.png')
 
     return None
 
@@ -1301,6 +1354,7 @@ def plot_sIFR(data={}, rheo_n='', ax=None, carg=None, opt=None):
             fr = fr_th_ell(sigI, e, efr, press, kt)
             # ax.plot(np.arctan(fr.ravel())*180/np.pi, sigI.ravel(), 'xk', ms=6, label='th_nnfr_ell', alpha=0.3)
             ax.plot(sigI.ravel(),np.arctan(fr.ravel())*180/np.pi, 'xk', ms=2, label='th_nnfr_ell', alpha=0.2)
+    # plt.savefig('flowrule_sI.png')
 
     return None
 
@@ -1323,6 +1377,7 @@ def plot_prAng(data={}):
         plot_prAng_ori(data=data, rheo_n=rheo_n, ax=ax)
 
     ax.legend(markerscale=2)
+    plt.savefig('princiapalaxes.png')
 
     return None
 
@@ -1359,6 +1414,7 @@ def plot_prAng_ori(data={}, rheo_n='', ax=None, carg=None, opt=None):
         p = ax.plot(psi_st.ravel(),psi_sr.ravel()-psi_st.ravel(),'.', ms=4, label=rheo_n, alpha=0.2)
         # p = ax.plot(psi_st.ravel(),psi_sr.ravel(),'.', ms=4, label=rheo_n, alpha=0.2)
         carg = p[0].get_color()
+    plt.savefig('flowrule_SI.png')
 
     return None
 

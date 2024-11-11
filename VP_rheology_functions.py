@@ -7,6 +7,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import copy
 from matplotlib.colors import SymLogNorm
 from math import copysign
+import matplotlib.colors as colors
 import scienceplots
 
 plt.style.use('science')
@@ -20,7 +21,7 @@ plt.style.use('science')
 
 from VP_rheology_settings import *
 
-def create_data(random=True,i=1e-6,j=0,plot=False,sym=True,s=201):
+def create_data(random=True,i=1e-6,j=0,plot=False,sym=True,s=200):
     '''
     Creating fake random data
     note that this not the correct way to compute the strain rates on a C grid
@@ -39,7 +40,6 @@ def create_data(random=True,i=1e-6,j=0,plot=False,sym=True,s=201):
         phi=np.random.random((s-1,s-1))
         
         # phi = np.random.random((s-1, s-1))*0.2+ 0.8
-        print(phi)
         np.random.seed(2)
         # h=np.random.random((s-1,s-1))
         h = np.ones_like(phi)
@@ -64,39 +64,48 @@ def create_data(random=True,i=1e-6,j=0,plot=False,sym=True,s=201):
             e21=dvdx
 
     else:
-        eg=np.mgrid[-i:i:200j,i:-i:200j]
+        # shape = j
+        eg=np.mgrid[-i:i:5j,i:-i:5j]
         e11 = eg[1,:,:]#*0.0
         e22 = eg[0,:,:]#*-0.5
         e12 = (1.0*e11+1.0*e22)*0.0
         e21 = (1.0*e11+1.0*e22)*0.0
 
         #  For the mu(I) rheology
-        phi = np.ones((200,200))
-        h = np.ones((200,200))
+        phi = np.ones_like(e21)
+        h = np.ones_like(e21)
 
     if plot :
-        plt.figure('e11')
-        plt.pcolormesh(e11)
-        plt.colorbar()
-        plt.axis('equal')
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, sharex = True, sharey = True, figsize = (8, 6))
+        
+        # plt.figure('sig11')
+        pc = ax1.pcolormesh(e11, vmin = np.min(e11), vmax = np.max(e11))
+        ax1.set_aspect('equal', adjustable='box')
+        ax1.set_title(r'$\dot{\epsilon}_{11}$ (1/s)')
+        fig.colorbar(pc, ax = ax1)
 
-        plt.figure('e22')
-        plt.pcolormesh(e22)
-        plt.colorbar()
-        plt.axis('equal')
+        pc = ax2.pcolormesh(e22, vmin = np.min(e22), vmax = np.max(e22))
+        ax2.set_aspect('equal', adjustable='box')
+        ax2.set_title(r'$\dot{\epsilon}_{22}$ (1/s)')
+        fig.colorbar(pc, ax = ax2)
 
-        plt.figure('e12')
-        plt.pcolormesh(e12)
-        plt.colorbar()
-        plt.axis('equal')
+        pc = ax3.pcolormesh(e12, vmin = np.min(e12), vmax = np.max(e12))
+        ax3.set_aspect('equal', adjustable='box')
+        ax3.set_title(r'$\dot{\epsilon}_{12}$ (1/s)')
+        fig.colorbar(pc, ax = ax3)
 
-        if not sym :
-            plt.figure('e21')
-            plt.pcolormesh(e21)
-            plt.colorbar()
-            plt.axis('equal')
+        pc = ax4.pcolormesh(np.sqrt(np.abs((e11- e22)**2 + 4*e12**2)), vmin = np.min(e21), vmax = np.max(e21))
+        ax4.set_aspect('equal', adjustable='box')
+        ax4.set_title(r'$\dot{\epsilon}_{II}$ (1/s)')
+        fig.colorbar(pc, ax = ax4)
 
-        plt.show()
+        # if not sym :
+        #     plt.figure('e21')
+        #     plt.pcolormesh(e21)
+        #     plt.colorbar()
+        #     plt.axis('equal')
+
+        plt.savefig(savefig+'shear_states.png')
 
 
 
@@ -263,6 +272,23 @@ def ellip(data={}, rheo={}, rheo_n = '', rot=False):
     data[rheo_n]['zeta'] = zeta
     data[rheo_n]['eta'] = eta
     data[rheo_n]['press'] = press
+    
+    print(eta)
+    
+    fig, ((ax1, ax2)) = plt.subplots(1, 2, sharex = True, sharey = True, figsize = (8, 6))
+    
+    # plt.figure('sig11')
+    pc = ax1.pcolormesh(zeta, vmin = np.min(zeta), vmax = np.max(zeta))
+    ax1.set_aspect('equal', adjustable='box')
+    ax1.set_title(r'$\zeta$')
+    fig.colorbar(pc, ax = ax1)
+
+    pc = ax2.pcolormesh(eta, vmin = np.min(eta), vmax = np.max(eta))
+    ax2.set_aspect('equal', adjustable='box')
+    ax2.set_title(r'$\eta$')
+    fig.colorbar(pc, ax = ax2)
+    
+    plt.savefig(savefig+'viscosities.png')
 
     return None
 
@@ -444,7 +470,6 @@ def mce(data={}, rheo={}, rheo_n = ''):
 
     return None
 
-
 def mcs(data={}, rheo={}, rheo_n = ''):
     '''
     MC-S rheology
@@ -583,8 +608,6 @@ def mceG(data={}, rheo={}, rheo_n = ''):
 
     return None
 
-
-
 def mctd(data={}, rheo={}, rheo_n = ''):
     '''
     MC-TD rheology
@@ -647,7 +670,6 @@ def mctd(data={}, rheo={}, rheo_n = ''):
     data[rheo_n]['press'] = press
 
     return None
-
 
 def mcpl(data={}, rheo={}, rheo_n = ''):
     '''
@@ -713,7 +735,6 @@ def mcpl(data={}, rheo={}, rheo_n = ''):
 
     return None
 
-
 def td(data={}, rheo={}, rheo_n = ''):
     '''
     TD rheology
@@ -758,7 +779,6 @@ def td(data={}, rheo={}, rheo_n = ''):
     data[rheo_n]['press'] = press
 
     return None
-
 
 def pl(data={}, rheo={}, rheo_n = ''):
     '''
@@ -914,7 +934,7 @@ def epl(data={}, rheo={}, rheo_n = ''):
 
     return None
 
-def muID(data={}, rheo={}, rheo_n = ''):
+def muID(data={}, rheo={}, rheo_n = '', plot = True):
     '''
     mu(I) rheological framework
     Heyman, J., Delannay, R., Tabuteau, H., & Valance, A. (2017). Compressibility regularizes the mu(I)-rheology for dense granular flows. Journal of Fluid Mechanics, 830, 553–568. https://doi.org/10.1017/jfm.2017.612
@@ -927,7 +947,7 @@ def muID(data={}, rheo={}, rheo_n = ''):
     eII = data['eII']
     phi = data['phi']
     h = data['h']
-    volume_changes = 1
+    volume_changes = 0
 
     # load rheo parameters
     if 'phi_0' in rheo:
@@ -1010,10 +1030,23 @@ def muID(data={}, rheo={}, rheo_n = ''):
         db = rheo['db']
     else:
         db = False
+        
+    #---- Computing the pressure ----#
 
     press0 = Pmax * h * np.exp(-Cstar*(1-phi))
+    press_mu = h*rho*(d_m*eII/(phi-phi_0+ 1e-20))**2
+    press_c = press0*np.tanh(press_mu*10/press0)
+    
     if db: pr_var_stats(press0, 'press0')
-
+    
+    #---- Computing the inertial number from phi ----#
+    I = d_m*eII*np.sqrt(rho/press0)
+    
+    phi_eq = 1-I
+    
+    press = press0*np.exp(phi*20*2*eII*(phi-phi_eq)) + press_c
+    
+    
     I = (phi_0 - phi)/c_phi
     if db: pr_var_stats(I, 'I')
 
@@ -1026,65 +1059,50 @@ def muID(data={}, rheo={}, rheo_n = ''):
     # I = ( 1. / c2 * np.arctanh(1. / c1 * (phi_0 - phi) ) )**2
     # def d_m(alpha, beta):
     #     return 2 * beta * (3 - alpha)
-    
-    I_switch = 0.001
-    alpha = 1.9
-    muI_switch = mu_0 + (mu_i-mu_0)/(I_0/I_switch+1)
-    A_minus = I_switch * np.exp(alpha / muI_switch ** 2)
-    
-    
-    muI = np.zeros_like(I)
-    print(np.shape(muI))
-    
-    
-    # muI[I < I_switch] = np.sqrt(alpha / np.log(A_minus/I[I < I_switch]))
-    
-    # muI[I > I_switch] = mu_0 + (mu_i-mu_0)/(I_0/I[I > I_switch]+1)
-    
 
-    muI = mu_0 + (mu_i-mu_0)/(I_0/I+1)
-    mubI = mub_0_d
+
+    #---- Computing the friction coefficient 
+    muI = mu_0 + (mu_i-mu_0)/(I_0*c_phi/(phi_0 - phi+1e-20)+1)
+    mubI = 1/muI
     
     if db: pr_var_stats(muI, 'muI ')
 
-    # mubI = mub_0 + (mub_i-mub_0)/(I_0/I+1)
-    
-    # mubI = 1/(2*muI)
 
     if db: pr_var_stats(mubI, 'mubI ')
+    
 
-    # press = np.minimum(rho*(d*eII/(phi-phi_0))**2*press0,Pmax)
-    # press = rho*(d_m*eII/(phi-phi_0))**2 * press0
-    press = h*rho*(d_m*eII/(phi-phi_0+ 1e-20))**2
-    press = Pmax*np.tanh(press/Pmax)
-    
-    
     if db: pr_var_stats(press, 'press')
+    
+    #---- Computing the effective pressure ----#
 
     p_eff = press * ( 1 - mubI * eI/ (eII + 1e-20) )
     
-    
+    SEAICE_etaMaxFac=1e8  
+    SEAICE_zetaMaxFac = 2.5e6
     if volume_changes:
         eta = press * (1 - mubI * eI/eII)**2
         
-        zeta = -2*muI*press / eII
+        zeta = 2*muI*press / eII
+        
+        eta = np.minimum(eta, 1e12)
+        zeta_max =  2e8*press
+        zeta = zeta_max * np.tanh(zeta / zeta_max)
+        
         press = 0
         
+    
     else:
         eta = press / (2 * eII+ 1e-20) * muI
         zeta = press / (2 * eII+ 1e-20) * (muI + 2 * mubI)
+        eta = SEAICE_etaMaxFac*np.tanh(eta / SEAICE_etaMaxFac)
+        zeta_max =  SEAICE_zetaMaxFac*press
+        zeta = zeta_max * np.tanh(zeta / zeta_max)
     # 
 
     # press=p_eff
     if db: pr_var_stats(p_eff, 'p_eff')
 
-    eta = np.minimum(eta, 1e12)
-    zeta_max =  2e8*press
-    zeta = zeta_max * np.tanh(zeta / zeta_max)
-    
     if db: pr_var_stats(eta, 'eta')
-
-   
     
     if db: pr_var_stats(zeta, 'zeta')
 
@@ -1094,7 +1112,36 @@ def muID(data={}, rheo={}, rheo_n = ''):
     data[rheo_n]['eta'] = eta
     data[rheo_n]['press'] = press
     data[rheo_n]['press0'] = press0
+    data[rheo_n]['I'] = I
     # data[rheo_n]['press0'] = press0
+    
+    
+    if plot:
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, sharex = True, sharey = True, figsize = (8, 6))
+        
+        # plt.figure('sig11')
+        pc = ax1.pcolormesh(zeta, norm = colors.Normalize( np.min(zeta),np.max(zeta)))
+        ax1.set_aspect('equal', adjustable='box')
+        ax1.set_title(r'$\zeta$')
+        fig.colorbar(pc, ax = ax1)
+
+        pc = ax2.pcolormesh(eta,norm = colors.Normalize(np.min(eta),np.max(eta)))
+        ax2.set_aspect('equal', adjustable='box')
+        ax2.set_title(r'$\eta$')
+        fig.colorbar(pc, ax = ax2)
+
+        pc = ax3.pcolormesh(press, norm = colors.Normalize(np.min(press),np.max(press)))
+        ax3.set_aspect('equal', adjustable='box')
+        ax3.set_title(r'$P$')
+        fig.colorbar(pc, ax = ax3)
+
+        pc = ax4.pcolormesh(muI, norm = colors.Normalize(np.min(muI),np.max(muI)))
+        ax4.set_aspect('equal', adjustable='box')
+        ax4.set_title(r'$\mu$')
+        fig.colorbar(pc, ax = ax4)
+
+        
+        plt.savefig(savefig+'mu_I.png')
 
     return None
 
@@ -1102,11 +1149,11 @@ def muID(data={}, rheo={}, rheo_n = ''):
 # STRESSES
 ##########
 
-def compute_stress(data={}):
+def compute_stress(plot, data={}):
 
     for rheo_n in data['rheos']:
-        compu_sigma(data=data, rheo_n=rheo_n)
-        comp_str_inva(data=data, rheo_n=rheo_n)
+        compu_sigma(data=data, rheo_n=rheo_n, plot = plot)
+        comp_str_inva(data=data, rheo_n=rheo_n , plot = plot)
 
     return None
 
@@ -1126,37 +1173,49 @@ def compu_sigma(data={}, rheo_n='', plot=False):
     data[rheo_n]['sig21'] = 2*e12*eta
 
     if plot :
-        plt.figure('sig11')
-        plt.pcolormesh(data[rheo_n]['sig11'])
-        plt.axis('equal')
-        plt.colorbar()
+        
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, sharex = True, sharey = True, figsize = (8, 6))
+        
+        # plt.figure('sig11')
+        pc = ax1.pcolormesh(data[rheo_n]['sig11'], vmin = np.min(data[rheo_n]['sig11']), vmax = np.max(data[rheo_n]['sig11']))
+        ax1.set_aspect('equal', adjustable='box')
+        ax1.set_title(r'$\sigma_{11}$')
+        fig.colorbar(pc, ax = ax1)
 
-        plt.figure('sig22')
-        plt.pcolormesh(data[rheo_n]['sig22'])
-        plt.axis('equal')
-        plt.colorbar()
+        pc = ax2.pcolormesh(data[rheo_n]['sig22'], vmin = np.min(data[rheo_n]['sig22']), vmax = np.max(data[rheo_n]['sig22']))
+        ax2.set_aspect('equal', adjustable='box')
+        ax2.set_title(r'$\sigma_{22}$')
+        fig.colorbar(pc, ax = ax2)
 
-        plt.figure('sig12')
-        plt.pcolormesh(data[rheo_n]['sig12'])
-        plt.axis('equal')
-        plt.colorbar()
+        pc = ax3.pcolormesh(data[rheo_n]['sig12'], vmin = np.min(data[rheo_n]['sig12']), vmax = np.max(data[rheo_n]['sig12']))
+        ax3.set_aspect('equal', adjustable='box')
+        ax3.set_title(r'$\sigma_{12}$')
+        fig.colorbar(pc, ax = ax3)
 
-        plt.figure('sig21')
-        plt.pcolormesh(data[rheo_n]['sig21'])
-        plt.axis('equal')
-        plt.colorbar()
+        pc = ax4.pcolormesh(data[rheo_n]['sig21'], vmin = np.min(data[rheo_n]['sig21']), vmax = np.max(data[rheo_n]['sig21']))
+        ax4.set_aspect('equal', adjustable='box')
+        ax4.set_title(r'$\sigma_{21}$')
+        fig.colorbar(pc, ax = ax4)
 
-        plt.show()
+        
+        plt.savefig(savefig+'stresses.png')
+        # plt.show()
 
     return None
 
-def comp_princ_stress(data={}, rheo_n=''):
+def comp_princ_stress(data={}, rheo_n='', plot = True):
 
     sig11 = data[rheo_n]['sig11']
     sig12 = data[rheo_n]['sig12']
     sig22 = data[rheo_n]['sig22']
     sig21 = data[rheo_n]['sig21']
-    press0 = data[rheo_n]['press0']
+    
+    if rheo_n == 'muID':
+        
+        press0 = data[rheo_n]['press']
+    
+    else:
+        press0 = data[rheo_n]['press0']
 
     sigp=sig11+sig22
     sigm=sig11-sig22
@@ -1169,6 +1228,23 @@ def comp_princ_stress(data={}, rheo_n=''):
 
     data[rheo_n]['sig1n']=0.5*(sigp+sigTmp)/press0
     data[rheo_n]['sig2n']=0.5*(sigp-sigTmp)/press0
+    
+
+    if plot :
+        fig, (ax1, ax2) = plt.subplots(1, 2, sharex = True, sharey = True, figsize = (7, 3))
+        
+        # plt.figure('sig11')
+        pc = ax1.pcolormesh(data[rheo_n]['sig1n'], norm = colors.Normalize(np.min(data[rheo_n]['sig1n']),np.max(data[rheo_n]['sig1n'])))
+        ax1.set_aspect('equal', adjustable='box')
+        ax1.set_title(r'$\sigma_{1}/P$')
+        fig.colorbar(pc, ax = ax1)
+
+        pc = ax2.pcolormesh(data[rheo_n]['sig2n'], norm = colors.Normalize(np.min(data[rheo_n]['sig2n']),np.max(data[rheo_n]['sig2n'])))
+        ax2.set_aspect('equal', adjustable='box')
+        ax2.set_title(r'$\sigma_{2}/P$')
+        fig.colorbar(pc, ax = ax2)
+        
+        plt.savefig(savefig+'stresses_princ.png')
 
     return None
 
@@ -1181,25 +1257,33 @@ def comp_str_inva(data={}, rheo_n='', plot=False):
 
     data[rheo_n]['sigI'] = 0.5*(sig1+sig2)
     data[rheo_n]['sigII'] = 0.5*(sig1-sig2)
+    
+    print(0.5*(sig1-sig2))
+
+
 
     sig1n = data[rheo_n]['sig1n']
     sig2n = data[rheo_n]['sig2n']
 
     data[rheo_n]['sigIn'] = 0.5*(sig1n+sig2n)
     data[rheo_n]['sigIIn'] = 0.5*(sig1n-sig2n)
+    
 
     if plot :
-        plt.figure('sigI')
-        plt.pcolormesh(data[rheo_n]['sigI'])
-        plt.axis('equal')
-        plt.colorbar()
+        fig, (ax1, ax2) = plt.subplots(1, 2, sharex = True, sharey = True, figsize = (7, 3))
+        
+        # plt.figure('sig11')
+        pc = ax1.pcolormesh(data[rheo_n]['sigIn'], vmin = np.min(data[rheo_n]['sigIn']), vmax = np.max(data[rheo_n]['sigIn']))
+        ax1.set_aspect('equal', adjustable='box')
+        ax1.set_title(r'$\sigma_{I}$')
+        fig.colorbar(pc, ax = ax1)
 
-        plt.figure('sigII')
-        plt.pcolormesh(data[rheo_n]['sigII'])
-        plt.axis('equal')
-        plt.colorbar()
-
-        plt.show()
+        pc = ax2.pcolormesh(data[rheo_n]['sigIIn'], vmin = np.min(data[rheo_n]['sigIIn']), vmax = np.max(data[rheo_n]['sigIIn']))
+        ax2.set_aspect('equal', adjustable='box')
+        ax2.set_title(r'$\sigma_{II}$')
+        fig.colorbar(pc, ax = ax2)
+        
+        plt.savefig(savefig+'stresses_inv.png')
 
     return None
 
@@ -1226,15 +1310,15 @@ def plot_stress(data={}):
     ax = fig1.gca()
     plt.grid()
     # plt.axis('equal')
-    ax.set_ylabel(r'$\sigma_{II}$ (normalized)')
-    ax.set_xlabel('$\sigma_{I}$ (normalized)')
+    ax.set_ylabel(r'$\sigma_{II}/P$')
+    ax.set_xlabel(r'$\sigma_{I}/P$')
 
     for rheo_n in data['rheos']:
         plot_inv(data=data, rheo_n=rheo_n, ax=ax, arrows=False)
 
     ax.legend(markerscale=5)
     # ax.set_xlim([-1.2,0.2])
-    plt.savefig('stress.png')
+    plt.savefig(savefig+'stress.png')
 
     return None
 
@@ -1299,7 +1383,7 @@ def plot_inv(data={}, rheo_n='', opt=None, arrows=False, ax=None, carg=None):
         ys = np.stack((cy.flatten(),sII.flatten()),axis=1)
         for i in range(len(xs)):
             ax.plot(xs[i], ys[i], c, lw = 1, alpha=0.3)
-    # plt.savefig('invariant.png')
+    # plt.savefig(savefig+'invariant.png')
 
     return None
 
@@ -1310,14 +1394,14 @@ def plot_FR(data={}):
     ax = fig1.gca()
     plt.grid()
     ax.set_ylabel(r'$\delta=\text{arctan}(e_I/e_{II})$ [$^\circ$]')
-    ax.set_xlabel(r'$\sigma_{I}$ (normalized)')
+    ax.set_xlabel(r'$\sigma_{I}/P$')
 
     for rheo_n in data['rheos']:
         plot_sIFR(data=data, rheo_n=rheo_n, ax=ax)
 
     ax.legend(markerscale=2)
     ax.set_ylim([-90,90])
-    plt.savefig('flowrule.png')
+    plt.savefig(savefig+'flowrule.png')
 
     return None
 
@@ -1354,9 +1438,33 @@ def plot_sIFR(data={}, rheo_n='', ax=None, carg=None, opt=None):
             fr = fr_th_ell(sigI, e, efr, press, kt)
             # ax.plot(np.arctan(fr.ravel())*180/np.pi, sigI.ravel(), 'xk', ms=6, label='th_nnfr_ell', alpha=0.3)
             ax.plot(sigI.ravel(),np.arctan(fr.ravel())*180/np.pi, 'xk', ms=2, label='th_nnfr_ell', alpha=0.2)
-    # plt.savefig('flowrule_sI.png')
+    # plt.savefig(savefig+'flowrule_sI.png')
 
     return None
+
+
+def plot_muI(data={}):
+    
+    for rheo_n in data['rheos']:
+        
+        if rheo_n == 'muID':
+            press = data[rheo_n]['press']
+            press0 = data[rheo_n]['press0']
+            phi   = data['phi']
+            
+            print(press)
+            
+            plt.figure()
+            plt.scatter(1-phi.flatten(), press.flatten(), color = 'r', label = '$p_{eq}$')
+            # plt.scatter(1-phi.flatten(), press0.flatten(), color = 'b', label = '$p_{max}$')
+            plt.legend()
+            plt.grid()
+            # plt.xlim(0.2,0.3)
+            plt.xlabel(r'$1-\phi$')
+            plt.ylabel(r'$P$ (N/m)')
+            plt.savefig(savefig+'press_muI.png')
+    
+
 
 
 def fr_th_ell(sI, e, efr, press, kt):
@@ -1377,7 +1485,7 @@ def plot_prAng(data={}):
         plot_prAng_ori(data=data, rheo_n=rheo_n, ax=ax)
 
     ax.legend(markerscale=2)
-    plt.savefig('princiapalaxes.png')
+    plt.savefig(savefig+'princiapalaxes.png')
 
     return None
 
@@ -1414,7 +1522,7 @@ def plot_prAng_ori(data={}, rheo_n='', ax=None, carg=None, opt=None):
         p = ax.plot(psi_st.ravel(),psi_sr.ravel()-psi_st.ravel(),'.', ms=4, label=rheo_n, alpha=0.2)
         # p = ax.plot(psi_st.ravel(),psi_sr.ravel(),'.', ms=4, label=rheo_n, alpha=0.2)
         carg = p[0].get_color()
-    plt.savefig('flowrule_SI.png')
+    plt.savefig(savefig+'flowrule_SI.png')
 
     return None
 

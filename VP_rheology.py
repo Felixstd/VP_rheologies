@@ -19,7 +19,7 @@ plt.rc('font', family='sans')
 
 # create fake deformation data
 # data = create_data(random=False,i=2e-5,j=0,plot=False,sym=True,s=201)
-data = create_data(random=True,i=2e-1,j=0,plot=False,sym=True,s=201)
+data = create_data(random=True,i=2e-1,j=0,plot=True,sym=True,s=201)
 # data = create_data(random=True,i=2e-6,j=0,plot=False,sym=True,s=201)
 
 # compute simpler and additionnal variables
@@ -56,7 +56,7 @@ data['rheos']=[]
 kt = 0.10
 
 rheo_to_viz = {
-    'ell2':{'rheo_t':'ell', 'e':2.0, 'kt':kt},
+    # 'ell2':{'rheo_t':'ell', 'e':2.0, 'kt':kt},
     # 'ell2':{'rheo_t':'ell', 'e':1.0, 'kt':kt},
     # 'ell4':{'rheo_t':'ell', 'e':4.0, 'kt':kt, 'plot_inv':True},
     # 'e2r4t':{'rheo_t':'ellt', 'e':1.0, 'efr':2.0, 'kt':kt},
@@ -84,7 +84,7 @@ compute_visc(data=data, rheos=rheo_to_viz)
 # COMPUTING STRESSES
 ####################
 
-compute_stress(data=data)
+compute_stress(True, data=data)
 
 # for rheo_n in data['rheos']:
     # print(data[rheo_n].keys())
@@ -104,6 +104,8 @@ plot_stress(data=data)
 plot_FR(data=data)
 
 plot_prAng(data=data)
+
+plot_muI(data = data)
 
 ###########
 # PLOT SHOW

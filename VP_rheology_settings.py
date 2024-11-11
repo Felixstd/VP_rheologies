@@ -34,6 +34,7 @@ ZMIN=1e-20
 
 # for Eta
 SEAICE_etaMaxFac=2.5e10
+SEAICE_etaMaxFac=2.5e10
 # EMAX=SEAICE_etaMaxFac*SEAICE_strength_d
 
 ## For the MC truncating
@@ -68,12 +69,12 @@ mu_i_d = 0.9 # H33 0.4
 # mu_i_d = 0.9 # H33 0.4
 
 # mu(I) range for dilatant deformatiom
-mub_0_d = 0.1
+mub_0_d = 100
 mub_i_d = 1
 
 # I threshold
 # I_0_d = 6.8e-3 # H22 6.8e-3
-I_0_d = 1e-2 # H22 6.8e-3
+I_0_d = 1e-3 # H22 6.8e-3
 
 # cohesion (to add in equations)
 coh_d = 0
@@ -84,4 +85,7 @@ Cstar_d = 20
 # Constant for the computation of press0 as function of h
 Pmax_d = 2.75e4
 
+
+# savefig = './VP_5x5_e2/'
+savefig = './mu_def_5x5/'
 # Pmax_d = e4

@@ -17,15 +17,20 @@ from VP_rheology_settings import *
 plt.rc('text', usetex=True)
 plt.rc('font', family='sans')
 
+
+bounds_phi = [1, 0.9]
+bounds_phieq = bounds_phi
+
+
 # create fake deformation data
 # data = create_data(random=False,i=2e-5,j=0,plot=False,sym=True,s=201)
-data = create_data(random=True,i=2e-1,j=0,plot=True,sym=True,s=201)
+data = create_data(bounds_phi, bounds_phieq, random=True,i=2e-1,j=0,plot=True,sym=True,s=201)
 # data = create_data(random=True,i=2e-6,j=0,plot=False,sym=True,s=201)
 
 # compute simpler and additionnal variables
 comp_sim_sr(data)
 
-data['rheos']=[]
+data['rheos']=[] 
 
 ######################
 # CHOICE OF RHEOLOGIES

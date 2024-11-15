@@ -69,7 +69,7 @@ mu_i_d = 0.9 # H33 0.4
 # mu_i_d = 0.9 # H33 0.4
 
 # mu(I) range for dilatant deformatiom
-mub_0_d = 100
+mub_0_d = 1
 mub_i_d = 1
 
 # I threshold
@@ -84,6 +84,11 @@ Cstar_d = 20
 
 # Constant for the computation of press0 as function of h
 Pmax_d = 2.75e4
+
+#--- Constants for the new friction pressure ---# 
+
+K = 2
+c_1 = 0.5
 
 
 # savefig = './VP_5x5_e2/'

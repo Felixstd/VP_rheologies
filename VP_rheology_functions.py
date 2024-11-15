@@ -21,7 +21,7 @@ plt.style.use('science')
 
 from VP_rheology_settings import *
 
-def create_data(random=True,i=1e-6,j=0,plot=False,sym=True,s=200):
+def create_data(bounds_phi, bounds_phieq, random = True, i=1e-6, j=0, plot=False, sym=True, s=200):
     '''
     Creating fake random data
     note that this not the correct way to compute the strain rates on a C grid
@@ -37,7 +37,11 @@ def create_data(random=True,i=1e-6,j=0,plot=False,sym=True,s=200):
 
         #  For the mu(I) rheology
         np.random.seed(4)
-        phi=np.random.random((s-1,s-1))
+        phi = np.random.random((s-1,s-1))* \
+            (bounds_phi[1]-bounds_phi[0]) + bounds_phi[0]
+        
+        phi_eq = np.random.random((s-1,s-1))* \
+            (bounds_phieq[1]-bounds_phieq[0]) + bounds_phieq[0]
         
         # phi = np.random.random((s-1, s-1))*0.2+ 0.8
         np.random.seed(2)
@@ -109,7 +113,7 @@ def create_data(random=True,i=1e-6,j=0,plot=False,sym=True,s=200):
 
 
 
-    return {'e11':e11, 'e22':e22, 'e12':e12, 'e21':e21, 'h':h, 'phi':phi}
+    return {'e11':e11, 'e22':e22, 'e12':e12, 'e21':e21, 'h':h, 'phi':phi, 'phi_eq': phi_eq}
 
 def comp_sim_sr(data):
     '''
@@ -934,11 +938,22 @@ def epl(data={}, rheo={}, rheo_n = ''):
 
     return None
 
-def muID(data={}, rheo={}, rheo_n = '', plot = True):
+def muID(press, capping_pressc, phi_crit, mu, range = False, data={}, rheo={}, rheo_n = '', plot = True):
     '''
     mu(I) rheological framework
     Heyman, J., Delannay, R., Tabuteau, H., & Valance, A. (2017). Compressibility regularizes the mu(I)-rheology for dense granular flows. Journal of Fluid Mechanics, 830, 553–568. https://doi.org/10.1017/jfm.2017.612
     Herman, A. (2022). Granular effects in sea ice rheology in the marginal ice zone. Philosophical Transactions of the Royal Society A: Mathematical, Physical and Engineering Sciences, 380(2235), 20210260. https://doi.org/10.1098/rsta.2021.0260
+    
+    Here, it computes the principal stresses and invariants from fake random data of u, v and phi (for a certain interval)
+    
+    
+    Inputs:
+        press: which pressure to use in the computation of the stresses
+        capping_pressc: the value to cap the collisional pressure to
+        phi_crit: if we have a range that includes concentration from 0 to 1, need to include 
+        a critical concentration. 
+    
+    
     '''
     print('Computing mu(I) rheology ; name:',rheo_n)
 
@@ -947,6 +962,7 @@ def muID(data={}, rheo={}, rheo_n = '', plot = True):
     eII = data['eII']
     phi = data['phi']
     h = data['h']
+    phi_eq = data['phi_eq']
     volume_changes = 0
 
     # load rheo parameters
@@ -1033,18 +1049,38 @@ def muID(data={}, rheo={}, rheo_n = '', plot = True):
         
     #---- Computing the pressure ----#
 
+    
     press0 = Pmax * h * np.exp(-Cstar*(1-phi))
-    press_mu = h*rho*(d_m*eII/(phi-phi_0+ 1e-20))**2
-    press_c = press0*np.tanh(press_mu*10/press0)
+    # press0 = Pmax * h 
+    
+    press_c = h*rho*(d_m*eII/(phi-phi_0+ 1e-20))**2
+    
+    if capping_pressc[0] == 'PressHibler':
+        press_c = np.minimum(h*rho*(d_m*eII/(phi-phi_0+ 1e-20))**2, press0)
+    
+    elif capping_pressc[0] == 'MaxValue':
+        press_c = np.minimum(h*rho*(d_m*eII/(phi-phi_0+ 1e-20))**2, 
+                             capping_pressc[1])
+    
+
+    #---- Computing the inertial number from phi ----#
+    I = np.minimum(d_m*eII*np.sqrt(rho/(press0+1e-20)),1)
+    # print(I)
+    shear_I = c_1*I**0.5
+    
+    press_friction = press0*np.exp(phi*Cstar*K*shear_I*(phi-phi_eq))
+    
     
     if db: pr_var_stats(press0, 'press0')
+    if db: pr_var_stats(press_c, 'press_c')
+    if db: pr_var_stats(press_friction, 'press_friction')
     
-    #---- Computing the inertial number from phi ----#
-    I = d_m*eII*np.sqrt(rho/press0)
     
-    phi_eq = 1-I
+    if range:
+        press_friction[phi<phi_crit] = 0
+        press_c[phi>phi_crit] = 0
+        press_tot = press_friction + press_c
     
-    press = press0*np.exp(phi*20*2*eII*(phi-phi_eq)) + press_c
     
     
     I = (phi_0 - phi)/c_phi
@@ -1063,7 +1099,7 @@ def muID(data={}, rheo={}, rheo_n = '', plot = True):
 
     #---- Computing the friction coefficient 
     muI = mu_0 + (mu_i-mu_0)/(I_0*c_phi/(phi_0 - phi+1e-20)+1)
-    mubI = 1/muI
+    mubI = mub_0_d
     
     if db: pr_var_stats(muI, 'muI ')
 
@@ -1071,14 +1107,14 @@ def muID(data={}, rheo={}, rheo_n = '', plot = True):
     if db: pr_var_stats(mubI, 'mubI ')
     
 
-    if db: pr_var_stats(press, 'press')
+    if db: pr_var_stats(press_tot, 'press')
     
     #---- Computing the effective pressure ----#
 
-    p_eff = press * ( 1 - mubI * eI/ (eII + 1e-20) )
+    # p_eff = press * ( 1 - mubI * eI/ (eII + 1e-20) )
     
-    SEAICE_etaMaxFac=1e8  
-    SEAICE_zetaMaxFac = 2.5e6
+    SEAICE_etaMaxFac=1e12
+    SEAICE_zetaMaxFac = 2.5e8
     if volume_changes:
         eta = press * (1 - mubI * eI/eII)**2
         
@@ -1090,17 +1126,22 @@ def muID(data={}, rheo={}, rheo_n = '', plot = True):
         
         press = 0
         
+    elif mu:
+        
+        eta = press_tot / (2 * eII+ 1e-20) * muI
+        zeta = eta
     
     else:
-        eta = press / (2 * eII+ 1e-20) * muI
-        zeta = press / (2 * eII+ 1e-20) * (muI + 2 * mubI)
-        eta = SEAICE_etaMaxFac*np.tanh(eta / SEAICE_etaMaxFac)
-        zeta_max =  SEAICE_zetaMaxFac*press
-        zeta = zeta_max * np.tanh(zeta / zeta_max)
-    # 
+        eta = press_tot / (2 * eII+ 1e-20) * muI
+        zeta = press_tot / (2 * eII+ 1e-20) * (muI + 2 * mubI)
+ 
+    eta = SEAICE_etaMaxFac*np.tanh(eta / SEAICE_etaMaxFac)
+    zeta_max =  SEAICE_zetaMaxFac*press_tot
+    zeta = zeta_max * np.tanh(zeta / zeta_max)
+
 
     # press=p_eff
-    if db: pr_var_stats(p_eff, 'p_eff')
+    if db: pr_var_stats(press_tot, 'p_eff')
 
     if db: pr_var_stats(eta, 'eta')
     
@@ -1110,12 +1151,19 @@ def muID(data={}, rheo={}, rheo_n = '', plot = True):
     data[rheo_n] = rheo
     data[rheo_n]['zeta'] = zeta
     data[rheo_n]['eta'] = eta
-    data[rheo_n]['press'] = press
-    data[rheo_n]['press0'] = press0
+    data[rheo_n]['press_hib'] = press0
+    data[rheo_n]['press_fric'] = press_friction
+    data[rheo_n]['press_col'] = press_c
     data[rheo_n]['I'] = I
-    # data[rheo_n]['press0'] = press0
+    data[rheo_n]['muI'] = muI
     
-    
+    if press == 'H':
+        data[rheo_n]['press'] = press0
+    elif press == 'c':
+        data[rheo_n]['press'] = press_c
+    elif press == 'f':
+        data[rheo_n]['press'] = press_friction
+
     if plot:
         fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, sharex = True, sharey = True, figsize = (8, 6))
         
@@ -1130,7 +1178,7 @@ def muID(data={}, rheo={}, rheo_n = '', plot = True):
         ax2.set_title(r'$\eta$')
         fig.colorbar(pc, ax = ax2)
 
-        pc = ax3.pcolormesh(press, norm = colors.Normalize(np.min(press),np.max(press)))
+        pc = ax3.pcolormesh(press_tot, norm = colors.Normalize(np.min(press_tot),np.max(press_tot)))
         ax3.set_aspect('equal', adjustable='box')
         ax3.set_title(r'$P$')
         fig.colorbar(pc, ax = ax3)
@@ -1212,7 +1260,7 @@ def comp_princ_stress(data={}, rheo_n='', plot = True):
     
     if rheo_n == 'muID':
         
-        press0 = data[rheo_n]['press']
+        press0 = data[rheo_n]['press_hib']
     
     else:
         press0 = data[rheo_n]['press0']
@@ -1258,10 +1306,6 @@ def comp_str_inva(data={}, rheo_n='', plot=False):
     data[rheo_n]['sigI'] = 0.5*(sig1+sig2)
     data[rheo_n]['sigII'] = 0.5*(sig1-sig2)
     
-    print(0.5*(sig1-sig2))
-
-
-
     sig1n = data[rheo_n]['sig1n']
     sig2n = data[rheo_n]['sig2n']
 
@@ -1317,8 +1361,10 @@ def plot_stress(data={}):
         plot_inv(data=data, rheo_n=rheo_n, ax=ax, arrows=False)
 
     ax.legend(markerscale=5)
-    # ax.set_xlim([-1.2,0.2])
-    plt.savefig(savefig+'stress.png')
+    plt.title(r'$\mu$ and $P = P_c$')
+    # ax.set_ylim([0,50])
+    # ax.set_xlim([-100,100])
+    plt.savefig(savefig+'stress_mu_Pc.png')
 
     return None
 
@@ -1330,8 +1376,10 @@ def plot_inv(data={}, rheo_n='', opt=None, arrows=False, ax=None, carg=None):
 
     sigI = data[rheo_n]['sigIn']
     sigII = data[rheo_n]['sigIIn']
+    muI = data[rheo_n]['muI']
     eI = data['eI']
     eII = data['eII']
+    
 
     if ax==None :
         fig1=plt.figure()
@@ -1347,11 +1395,17 @@ def plot_inv(data={}, rheo_n='', opt=None, arrows=False, ax=None, carg=None):
     else:
         fac = 1
 
+    fac =1
 
     if carg != None :
         ax.scatter(sigI.ravel(), fac*sigII.ravel(), carg, label=rheo_n)
     else:
-        p = ax.plot(sigI.ravel(), fac*sigII.ravel(), '.', ms=1, label=rheo_n)
+        p = ax.plot(sigI.ravel(), fac*sigII.ravel(), '.', ms=1)
+        ax.plot(np.unique(sigI).ravel(), abs(mu_0_d*np.unique(sigI).ravel()), ms=1, label='$\mu_0 \sigma_I$')
+        ax.plot(np.unique(sigI).ravel(), abs(mu_i_d*np.unique(sigI).ravel()), ms=1, label='$\mu_\infty \sigma_I$')
+        # ax.plot(sigI.ravel(), abs(muI.ravel()*sigI.ravel()), '.', ms=1, label='$\mu_\infty \sigma_I$')
+        # ax.set_ylim(0, 1)
+        # ax.set_xlim(0, 1)
         carg = p[0].get_color()
 
     if arrows :
@@ -1448,20 +1502,26 @@ def plot_muI(data={}):
     for rheo_n in data['rheos']:
         
         if rheo_n == 'muID':
-            press = data[rheo_n]['press']
-            press0 = data[rheo_n]['press0']
+            press_tot      = data[rheo_n]['press']
+            press_hib      = data[rheo_n]['press_hib']
+            press_friction = data[rheo_n]['press_fric']
+            press_c        = data[rheo_n]['press_col']
+
             phi   = data['phi']
             
-            print(press)
             
             plt.figure()
-            plt.scatter(1-phi.flatten(), press.flatten(), color = 'r', label = '$p_{eq}$')
+            # plt.scatter(1-phi.flatten(), press_tot.flatten()/press_hib.flatten(), s = 1,label = '$p_t$')
+            # plt.scatter(1-phi.flatten(), press_hib.flatten(), s = 1,label = '$p_H$')
+            plt.scatter(1-phi.flatten(), press_friction.flatten(), s = 1,label = '$p_f$')
+            plt.scatter(1-phi.flatten(), press_c.flatten(), s = 1,label = '$p_c$')
             # plt.scatter(1-phi.flatten(), press0.flatten(), color = 'b', label = '$p_{max}$')
             plt.legend()
             plt.grid()
-            # plt.xlim(0.2,0.3)
+            plt.xlim(0.15, 0.25)
+            plt.ylim(0, 50)
             plt.xlabel(r'$1-\phi$')
-            plt.ylabel(r'$P$ (N/m)')
+            plt.ylabel(r'$P/P_H$')
             plt.savefig(savefig+'press_muI.png')
     
 

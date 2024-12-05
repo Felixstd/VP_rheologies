@@ -83,7 +83,10 @@ rheo_to_viz = {
 # COMPUTING VISCOSITIES
 #######################
 
-compute_visc(data=data, rheos=rheo_to_viz)
+press = 't'
+
+
+compute_visc(press, data=data, rheos=rheo_to_viz)
 
 ####################
 # COMPUTING STRESSES

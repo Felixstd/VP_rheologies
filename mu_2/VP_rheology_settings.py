@@ -59,7 +59,7 @@ rho_d = 910
 
 # average size of floes
 # d_m_d = 300
-d_m_d = 1e2
+d_m_d = 1e4
 
 # mu(I) range for shear deformation
 mu_0_d = 0.1 # H22 0.13
@@ -69,12 +69,12 @@ mu_i_d = 0.9# H33 0.4
 # mu_i_d = 0.9 # H33 0.4
 
 # mu(I) range for dilatant deformatiom
-mub_0_d = 1
+mub_0_d = 5
 mub_i_d = 1
 
 # I threshold
-I_0_d = 6.8e-2# H22 6.8e-3
-# I_0_d = 1e-4 # H22 6.8e-3
+# I_0_d = 6.8e-3 # H22 6.8e-3
+I_0_d = 1e-3 # H22 6.8e-3
 
 # cohesion (to add in equations)
 coh_d = 0
@@ -92,5 +92,5 @@ c_1 = 1e-1
 c_2 = 1/4
 
 # savefig = './VP_5x5_e2/'
-savefig = '/aos/home/fstdenis/VP_rheologies/mu_3/'
+savefig = '/aos/home/fstdenis/VP_rheologies/mu_2/'
 # Pmax_d = e4
